@@ -1,0 +1,242 @@
+[
+    {
+        "status": "accepted",
+        "reservation": {
+            "date": "2024-10-12",
+            "time": {
+                "hours": 7,
+                "minutes": 30
+            }
+        },
+        "subject": {
+            "typOsoby": "firma",
+            "obchodniJmeno": "Stavební Společnost s.r.o.",
+            "platceDph": true,
+            "ico": "27654321",
+            "dic": "CZ27654321"
+        },
+        "persons": {
+            "contactSameAsResponsible": true,
+            "responsible": {
+                "jmeno": "Jan Novák",
+                "telefon": "+420777123456",
+                "email": "novak.jan@stavebnifirma.cz"
+            },
+            "contact": {
+                "jmeno": "",
+                "telefon": "",
+                "email": ""
+            },
+            "confirmation": true
+        },
+        "address": {
+            "typAdresy": "existujici",
+            "adresa": "Hlavní 123, Praha 1",
+            "pozemek": "č.p. 456",
+            "mesto": "Praha",
+            "psc": "11000",
+            "kraj": "Praha",
+            "poznamka": "Dostavba skladových prostor"
+        },
+        "configuration": {
+            "typBetonu": "C25/30",
+            "tloustkaKameniva": 8,
+            "kvalita": "B20",
+            "vyska": "150 cm",
+            "poznamka": "Mimořádně pevný"
+        },
+        "remember": false
+    },
+    {
+        "status": "pending",
+        "reservation": {
+            "date": "2024-10-14",
+            "time": {
+                "hours": 8,
+                "minutes": 0
+            }
+        },
+        "subject": {
+            "typOsoby": "fyzicka",
+            "obchodniJmeno": "Pavel Malý",
+            "platceDph": false,
+            "ico": "87098765",
+            "dic": ""
+        },
+        "persons": {
+            "contactSameAsResponsible": false,
+            "responsible": {
+                "jmeno": "Pavel Malý",
+                "telefon": "+420777654321",
+                "email": "maly.pavel@firma.cz"
+            },
+            "contact": {
+                "jmeno": "Tomáš Novotný",
+                "telefon": "+420777654123",
+                "email": "novotny.tomas@firma.cz"
+            },
+            "confirmation": false
+        },
+        "address": {
+            "typAdresy": "existujici",
+            "adresa": "Vinohradská 45, Brno",
+            "pozemek": "č.p. 123",
+            "mesto": "Brno",
+            "psc": "60200",
+            "kraj": "Jihomoravský",
+            "poznamka": "Dlažba kolem domu"
+        },
+        "configuration": {
+            "typBetonu": "C30/37",
+            "tloustkaKameniva": 8,
+            "kvalita": "B25",
+            "vyska": "200 cm",
+            "poznamka": "Pro vysokou zátěž"
+        },
+        "remember": true
+    },
+    {
+        "status": "rejected",
+        "reservation": {
+            "date": "2024-11-01",
+            "time": {
+                "hours": 9,
+                "minutes": 15
+            }
+        },
+        "subject": {
+            "typOsoby": "firma",
+            "obchodniJmeno": "Betonstav CZ a.s.",
+            "platceDph": true,
+            "ico": "25112345",
+            "dic": "CZ25112345"
+        },
+        "persons": {
+            "contactSameAsResponsible": true,
+            "responsible": {
+                "jmeno": "Petr Dvořák",
+                "telefon": "+420606123456",
+                "email": "dvorak.petr@betonstav.cz"
+            },
+            "contact": {
+                "jmeno": "",
+                "telefon": "",
+                "email": ""
+            },
+            "confirmation": true
+        },
+        "address": {
+            "typAdresy": "existujici",
+            "adresa": "Náměstí Svobody 10, Ostrava",
+            "pozemek": "č.p. 789",
+            "mesto": "Ostrava",
+            "psc": "70200",
+            "kraj": "Moravskoslezský",
+            "poznamka": "Nová výstavba"
+        },
+        "configuration": {
+            "typBetonu": "C20/25",
+            "tloustkaKameniva": 8,
+            "kvalita": "B15",
+            "vyska": "100 cm",
+            "poznamka": "Pro základovou desku"
+        },
+        "remember": false
+    },
+    {
+        "status": "pending",
+        "reservation": {
+            "date": "2024-10-18",
+            "time": {
+                "hours": 10,
+                "minutes": 45
+            }
+        },
+        "subject": {
+            "typOsoby": "fyzicka",
+            "obchodniJmeno": "Lucie Svobodová",
+            "platceDph": false,
+            "ico": "85987412",
+            "dic": ""
+        },
+        "persons": {
+            "contactSameAsResponsible": false,
+            "responsible": {
+                "jmeno": "Lucie Svobodová",
+                "telefon": "+420721987654",
+                "email": "svobodova.lucie@email.cz"
+            },
+            "contact": {
+                "jmeno": "Marek Novák",
+                "telefon": "+420721654321",
+                "email": "novak.marek@email.cz"
+            },
+            "confirmation": true
+        },
+        "address": {
+            "typAdresy": "existujici",
+            "adresa": "Na Příkopě 12, Plzeň",
+            "pozemek": "č.p. 321",
+            "mesto": "Plzeň",
+            "psc": "30100",
+            "kraj": "Plzeňský",
+            "poznamka": "Rekonstrukce garáže"
+        },
+        "configuration": {
+            "typBetonu": "C16/20",
+            "tloustkaKameniva": 8,
+            "kvalita": "B10",
+            "vyska": "80 cm",
+            "poznamka": "Nízká zátěž"
+        },
+        "remember": true
+    },
+    {
+        "status": "pending",
+        "reservation": {
+            "date": "2024-11-05",
+            "time": {
+                "hours": 11,
+                "minutes": 0
+            }
+        },
+        "subject": {
+            "typOsoby": "firma",
+            "obchodniJmeno": "ABC Stavební",
+            "platceDph": true,
+            "ico": "45698723",
+            "dic": "CZ45698723"
+        },
+        "persons": {
+            "contactSameAsResponsible": true,
+            "responsible": {
+                "jmeno": "Josef Černý",
+                "telefon": "+420603654789",
+                "email": "cerny.josef@abcstavebni.cz"
+            },
+            "contact": {
+                "jmeno": "",
+                "telefon": "",
+                "email": ""
+            },
+            "confirmation": true
+        },
+        "address": {
+            "typAdresy": "existujici",
+            "adresa": "Ulice Na Zátiší 4, Liberec",
+            "pozemek": "č.p. 567",
+            "mesto": "Liberec",
+            "psc": "46001",
+            "kraj": "Liberecký",
+            "poznamka": "Základy pro administrativní budovu"
+        },
+        "configuration": {
+            "typBetonu": "C25/30",
+            "tloustkaKameniva": 8,
+            "kvalita": "B25",
+            "vyska": "120 cm",
+            "poznamka": "Vysoce pevný beton"
+        },
+        "remember": false
+    }
+]
