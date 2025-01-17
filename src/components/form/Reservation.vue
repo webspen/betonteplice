@@ -79,23 +79,7 @@ const markers = computed<DatePickerMarker[]>(() => [
 </script>
 
 <template>
-    <FormKit type="group" v-model="model" name="reservation">
-        <label for="date"
-            class="block text-lg mb-2.5 font-medium text-gray-700 dark:text-gray-300">Datum&nbsp;rezervace</label>
-        <DatePicker v-if="!model.dohoda" id="date" v-model="model.date" dark inline
-            :enableTimePicker="false" :minDate="tomorrow" :disabledDates="disabledDates.state.value"
-            :disabledWeekDays="[0, 6]" :markers="markers" class="mb-5 mx-auto" required locale="cs"
-            autoApply :loading="disabledDates.isLoading.value" preventMinMaxNavigation
-            disableYearSelect />
-        <label for="time"
-            class="block text-lg mb-2.5 font-medium text-gray-700 dark:text-gray-300">Čas
-            příjezdu (v kolik máme přijet)</label>
-        <DatePicker id="time" v-model="model.time" inline timePicker dark
-            :minTime="{ hours: 6, minutes: 0 }"
-            :maxTime="{ hours: 14, minutes: 15 }" required class="mb-5 mx-auto" autoApply
-            :minutesIncrement="15" :minutesGridIncrement="15" preventMinMaxNavigation />
-        <p class="text-sm text-gray-400">Rezervace je možná pouze od 7:00 do 14:00</p>
-    </FormKit>
+    
 </template>
 
 <style>

@@ -10,7 +10,7 @@ const pricingData = [
 </script>
 
 <template>
-    <section id="cenik" class="container mx-auto py-8">
+    <section id="cenik" class="container mx-auto py-8 px-6">
         <h2 class="text-2xl font-bold mb-6">Ceník</h2>
         <table class="min-w-full border-collapse border border-gray-300">
             <thead>

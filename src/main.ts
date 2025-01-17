@@ -16,19 +16,19 @@ app.use(createRouter({
     routes: [
         {
             path: "/",
-            component: () => import("./views/Home.vue"),
+            component: () => import("./home/View.vue"),
         }, {
             path: "/admin",
-            component: () => import("./views/Admin.vue"),
+            component: () => import("./admin/View.vue"),
         }, {
             path: "/rezervace",
-            component: () => import("./views/Form.vue"),
+            component: () => import("./form/View.vue"),
         }, {
             path: "/obchodni-podminky",
-            component: () => import("./views/Terms.vue"),
+            component: () => import("./Terms.vue"),
         }, {
             path: "/zpracovani-osobnich-udaju",
-            component: () => import("./views/Privacy.vue"),
+            component: () => import("./Privacy.vue"),
         },
     ]
 }))
