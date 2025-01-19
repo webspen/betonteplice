@@ -222,7 +222,7 @@ const onSubmit = async () => {
 <template>
     <div class="flex flex-row justify-center bg-zinc-700 min-h-screen dark">
         <div id="poptavka" class="mx-auto my-12 w-full max-w-xl">
-            <FormKit v-model="form" type="form" @submit="onSubmit" submitLabel="Odeslat poptávku">
+            <FormKit type="form" @submit="onSubmit" submitLabel="Odeslat poptávku">
                 <FormKit :type="('multi-step' as any)" tab-style="progress">
                     <FormKit :type="('step' as any)" name="reservation" label="Rezervace"
                         nextLabel="Pokračovat">
