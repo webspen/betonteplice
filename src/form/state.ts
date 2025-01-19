@@ -1,5 +1,4 @@
 import { ref, reactive } from "vue"
-import { useAsyncState } from "@vueuse/core"
 
 export const form = reactive({
     // id
@@ -7,35 +6,35 @@ export const form = reactive({
     // created_at
     // updated_at
 
-    date: null as string | null, // date
+    date: new Date().toISOString().split("T")[0]  as string | undefined, // date
     time: "07:00", // time
 
-    customer_type: null as string | null,
-    customer_name: null as string | null,
-    customer_vat: null as boolean | null,
-    customer_cid: null as string | null,
-    customer_vat_number: null as string | null,
+    customer_type: "pravnicka" as string,
+    customer_name: undefined as string | undefined,
+    customer_vat: undefined as boolean | undefined,
+    customer_cid: undefined as string | undefined,
+    customer_vat_number: undefined as string | undefined,
 
-    customer_phone: null as string | null,
-    customer_email: null as string | null,
+    customer_phone: undefined as string | undefined,
+    customer_email: undefined as string | undefined,
 
-    contact_name: null as string | null,
-    contact_phone: null as string | null,
-    contact_email: null as string | null,
+    contact_name: undefined as string | undefined,
+    contact_phone: undefined as string | undefined,
+    contact_email: undefined as string | undefined,
 
-    address_type: null as string | null,
-    address_street: null as string | null,
-    address_city: null as string | null,
-    address_zip: null as string | null,
-    address_country: null as string | null,
-    address_note: null as string | null,
+    address_type: undefined as string | undefined,
+    address_street: undefined as string | undefined,
+    address_city: undefined as string | undefined,
+    address_zip: undefined as string | undefined,
+    address_country: undefined as string | undefined,
+    address_note: undefined as string | undefined,
 
     config: {
-        typBetonu: null as string | null,
-        tloustkaKameniva: 8 as number | null,
-        kvalita: null as string | null,
-        vyska: null as string | null,
-        poznamka: null as string | null,
+        typBetonu: undefined as string | undefined,
+        tloustkaKameniva: 8 as number | undefined,
+        kvalita: undefined as string | undefined,
+        vyska: undefined as string | undefined,
+        poznamka: undefined as string | undefined,
     },
 })
 
