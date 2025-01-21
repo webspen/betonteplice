@@ -1,8 +1,13 @@
 <script setup lang="ts">
 import type { AresApiResponse } from "../types";
-import { watchDebounced, useVModel, useAsyncState } from "@vueuse/core";
+import { onMounted, computed } from "vue";
+import { watchDebounced } from "@vueuse/core";
 import { form, metadata, step } from "./state";
-import superjson from "superjson";
+import { Loader } from "@googlemaps/js-api-loader";
+import { useAsyncState } from "@vueuse/core";
+import type { DatePickerMarker } from "@vuepic/vue-datepicker";
+import DatePicker from "@vuepic/vue-datepicker";
+import "@vuepic/vue-datepicker/dist/main.css";
 
 async function ares(ico: string): Promise<AresApiResponse> {
   const response = await fetch(`${import.meta.env.VITE_ARES_URL}/${ico}`);
@@ -10,7 +15,52 @@ async function ares(ico: string): Promise<AresApiResponse> {
   return data as AresApiResponse;
 }
 
-const prikladAres = {
+const druhyAdresy = [
+  { value: "existujici", label: "Existující adresa" },
+  { value: "pozemek", label: "Stavba - Pozemek" },
+];
+
+onMounted(async () => {
+  const loader = new Loader({
+    apiKey: import.meta.env.VITE_GOOGLE_MAPS_KEY,
+    version: "weekly",
+    language: "cs",
+  });
+  const Places = await loader.importLibrary("places");
+  const input = document.querySelector("input[name=adresa]");
+
+  console.log("[Google Maps] input", input);
+
+  //this object will be our second arg for the new instance of the Places API
+  const options = {
+    componentRestrictions: { country: "cz" }, // limiter for the places api search
+    fields: ["address_components", "geometry", "icon", "name"], // allows the api to accept these inputs and return similar ones
+    strictBounds: false, // optional
+  };
+
+  // per the Google docs create the new instance of the import above. I named it Places.
+  const autocomplete = new Places.Autocomplete(input, options);
+
+  console.log("[Google Maps] autocomplete", autocomplete); //optional log but will show you the available methods and properties of the new instance of Places.
+
+  //add the place_changed listener to display results when inputs change
+  autocomplete.addListener("place_changed", () => {
+    const place = autocomplete.getPlace(); //this callback is inherent you will see it if you logged autocomplete
+    console.log("[Google Maps] change - place", place);
+    place.address_components.forEach((component: any) => {
+      console.log("[Google Maps] change - component", component);
+      if (component.types.includes("postal_code")) {
+        form.address_zip = component.long_name;
+      } else if (component.types.includes("locality")) {
+        form.address_city = component.long_name;
+      } else if (component.types.includes("administrative_area_level_1")) {
+        form.address_note = component.long_name;
+      }
+    });
+  });
+});
+({
+  // Ares API response example
   ico: "1234567",
   obchodniJmeno: "John Dee",
   sidlo: {
@@ -44,7 +94,31 @@ const prikladAres = {
     radekAdresy3: "12345 Prague",
   },
   primarniZdroj: "rzp",
-};
+});
+
+const typyOsob = [
+  { value: "fyzicka", label: "Fyzická osoba" },
+  { value: "podnikatel", label: "Fyzická osoba podnikatel" },
+  { value: "pravnicka", label: "Společnost" },
+  {
+    value: "baracnik",
+    label: "Baráčník (osoba, která si staví vlastní rodinný dům)",
+  },
+];
+
+const druhyBetonu = [
+  { value: "vlastni", label: "Vlastní" },
+  { value: "betonTeplice", label: "Potřebuji beton dodat - Teplice" },
+  { value: "betonMimo", label: "Potřebuji beton dodat - mimo Teplice" },
+];
+
+const tomorrow = new Date();
+tomorrow.setDate(tomorrow.getDate() + 1);
+form.date = tomorrow.toISOString().split("T")[0];
+form.time = "07:00";
+
+// const in30Days = new Date()
+// in30Days.setDate(in30Days.getDate() + 30)
 
 const disabledDates = useAsyncState<string[]>(async () => {
   await new Promise((resolve) => setTimeout(resolve, 2000)); // Wait for 2 seconds
@@ -59,8 +133,53 @@ const disabledDates = useAsyncState<string[]>(async () => {
   ];
 }, []);
 
+const markers = computed<DatePickerMarker[]>(() => [
+  {
+    date: "2024-09-29",
+    color: "red",
+    type: "line",
+    tooltip: [{ text: "Obsazeno" }],
+  },
+  {
+    date: "2024-10-06",
+    color: "red",
+    type: "line",
+    tooltip: [{ text: "Obsazeno" }],
+  },
+  {
+    date: "2024-10-10",
+    color: "red",
+    type: "line",
+    tooltip: [{ text: "Obsazeno" }],
+  },
+  {
+    date: "2024-10-13",
+    color: "red",
+    type: "line",
+    tooltip: [{ text: "Obsazeno" }],
+  },
+  {
+    date: "2024-10-16",
+    color: "red",
+    type: "line",
+    tooltip: [{ text: "Obsazeno" }],
+  },
+  {
+    date: "2024-10-17",
+    color: "red",
+    type: "line",
+    tooltip: [{ text: "Obsazeno" }],
+  },
+  {
+    date: "2024-10-18",
+    color: "red",
+    type: "line",
+    tooltip: [{ text: "Obsazeno" }],
+  },
+]);
+
 watchDebounced(
-  form,
+  () => form,
   async () => {
     if (form.customer_cid) {
       const { pravniForma, sidlo, obchodniJmeno } = await ares(
@@ -97,84 +216,82 @@ const prevStep = () => {
   if (step.value > 1) step.value--;
 };
 
-const onSubmit = async () => {
-  const res = await fetch(import.meta.env.VITE_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(form),
-  });
+const onSubmit = async (formData, node) => {
+  console.log({ formData, node });
+
+  // const res = await fetch(import.meta.env.VITE_API_URL, {
+  //   method: "POST",
+  //   headers: {
+  //     "Content-Type": "application/json",
+  //   },
+  //   body: JSON.stringify(form),
+  // });
 
   console.log("[Submit]", form);
 };
 </script>
 <template>
-  <div class="dark flex min-h-screen flex-row justify-center bg-zinc-700">
-    <div id="poptavka" class="max-w-xl w-full mx-auto my-12">
+  <div class="flex flex-row justify-center bg-zinc-700 min-h-screen dark">
+    <div id="poptavka" class="mx-auto my-12 w-full max-w-xl">
       <FormKit
         type="form"
         @submit="onSubmit"
-        submitLabel="Odeslat poptávku"
         :value="form"
-        @input="(data) => Object.assign(form, data)"
-        useLocalStorage
+        submitLabel="Odeslat poptávku"
       >
-        <FormKit type="multi-step" tab-style="progress">
+        <FormKit :type="('multi-step' as any)" tab-style="progress">
           <FormKit
-            type="step"
+            :type="('step' as any)"
             name="reservation"
             label="Rezervace"
             nextLabel="Pokračovat"
           >
-            <FormKit type="group" name="reservation">
-              <label
-                for="date"
-                class="block text-lg mb-2.5 font-medium text-gray-700 dark:text-gray-300"
-                >Datum&nbsp;rezervace</label
-              >
-              <DatePicker
-                id="date"
-                v-model="form.date"
-                dark
-                inline
-                :enableTimePicker="false"
-                :minDate="tomorrow"
-                :disabledDates="disabledDates.state.value"
-                :disabledWeekDays="[0, 6]"
-                :markers="markers"
-                class="mb-5 mx-auto"
-                required
-                locale="cs"
-                autoApply
-                :loading="disabledDates.isLoading.value"
-                preventMinMaxNavigation
-                disableYearSelect
-              />
-              <label
-                for="time"
-                class="block text-lg mb-2.5 font-medium text-gray-700 dark:text-gray-300"
-                >Čas příjezdu (v kolik máme přijet)</label
-              >
-              <DatePicker
-                id="time"
-                v-model="form.time"
-                inline
-                timePicker
-                dark
-                :minTime="{ hours: 6, minutes: 0 }"
-                :maxTime="{ hours: 14, minutes: 15 }"
-                required
-                class="mb-5 mx-auto"
-                autoApply
-                :minutesIncrement="15"
-                :minutesGridIncrement="15"
-                preventMinMaxNavigation
-              />
-              <p class="text-sm text-gray-400">
-                Rezervace je možná pouze od 7:00 do 14:00
-              </p>
-            </FormKit>
+            <label
+              for="date"
+              class="block mb-2.5 font-medium text-gray-700 text-lg dark:text-gray-300"
+              >Datum&nbsp;rezervace</label
+            >
+            <DatePicker
+              id="date"
+              v-model="form.date"
+              dark
+              inline
+              :enableTimePicker="false"
+              :minDate="tomorrow"
+              :disabledDates="disabledDates.state.value"
+              :disabledWeekDays="[0, 6]"
+              :markers="markers"
+              class="mx-auto mb-5"
+              required
+              locale="cs"
+              autoApply
+              :loading="disabledDates.isLoading.value"
+              preventMinMaxNavigation
+              disableYearSelect
+            />
+            <label
+              for="time"
+              class="block mb-2.5 font-medium text-gray-700 text-lg dark:text-gray-300"
+              >Čas příjezdu (v kolik máme přijet)</label
+            >
+            <DatePicker
+              id="time"
+              v-model="form.time"
+              inline
+              timePicker
+              dark
+              :minTime="{ hours: 6, minutes: 0 }"
+              :maxTime="{ hours: 14, minutes: 15 }"
+              required
+              class="mx-auto mb-5"
+              autoApply
+              :minutesIncrement="15"
+              :minutesGridIncrement="15"
+              preventMinMaxNavigation
+            />
+            <p class="text-gray-400 text-sm">
+              Rezervace je možná pouze od 7:00 do 14:00
+            </p>
           </FormKit>
           <FormKit
             :type="('step' as any)"
@@ -183,52 +300,50 @@ const onSubmit = async () => {
             previousLabel="Zpět"
             nextLabel="Pokračovat"
           >
-            <FormKit type="group" name="subject">
-              <FormKit
-                type="select"
-                name="typOsoby"
-                v-model="form.customer_type"
-                label="Typ osoby"
-                :options="['fyzicka', 'podnikatel', 'pravnicka', 'baracnik']"
-                required
-              />
-              <FormKit
-                v-if="['podnikatel', 'pravnicka'].includes(form.customer_type)"
-                type="text"
-                label="IČO"
-                name="ico"
-                min="8"
-                max="8"
-                validation="required|number"
-              />
-              <FormKit
-                v-if="form.customer_type !== 'baracnik'"
-                type="checkbox"
-                label="Plátce DPH"
-                v-model="form.customer_vat"
-              />
-              <FormKit
-                v-if="form.customer_type !== 'baracnik' && form.customer_vat"
-                type="text"
-                label="DIČ"
-                name="dic"
-                min="8"
-                max="12"
-              />
-              <FormKit
-                type="text"
-                name="jmeno"
-                v-model="form.customer_name"
-                :label="
-                  form.customer_type === 'pravnicka'
-                    ? 'Obchodní Jméno'
-                    : 'Jméno a Příjmení'
-                "
-                min="3"
-                max="200"
-                required
-              />
-            </FormKit>
+            <FormKit
+              type="select"
+              name="typOsoby"
+              v-model="form.customer_type"
+              label="Typ osoby"
+              :options="['fyzicka', 'podnikatel', 'pravnicka', 'baracnik']"
+              required
+            />
+            <FormKit
+              v-if="['podnikatel', 'pravnicka'].includes(form.customer_type)"
+              type="text"
+              label="IČO"
+              name="ico"
+              min="8"
+              max="8"
+              validation="required|number"
+            />
+            <FormKit
+              v-if="form.customer_type !== 'baracnik'"
+              type="checkbox"
+              label="Plátce DPH"
+              field="customer_vat"
+            />
+            <FormKit
+              v-if="form.customer_type !== 'baracnik' && form.customer_vat"
+              type="text"
+              label="DIČ"
+              name="dic"
+              min="8"
+              max="12"
+            />
+            <FormKit
+              type="text"
+              name="jmeno"
+              v-model="form.customer_name"
+              :label="
+                form.customer_type === 'pravnicka'
+                  ? 'Obchodní Jméno'
+                  : 'Jméno a Příjmení'
+              "
+              min="3"
+              max="200"
+              required
+            />
           </FormKit>
           <FormKit
             :type="('step' as any)"
@@ -237,39 +352,25 @@ const onSubmit = async () => {
             previousLabel="Zpět"
             nextLabel="Pokračovat"
           >
-            <FormKit type="group" name="persons">
-              <FormKit type="group" name="responsible">
-                <label class="font-semibold text-zinc-200"
-                  >Odpovědná osoba</label
-                >
-                <FormKit type="text" label="Jméno" name="jmeno" />
-                <FormKit type="text" label="Telefon" name="telefon" />
-                <FormKit type="email" label="Email" name="email" />
-              </FormKit>
-              <FormKit
-                type="checkbox"
-                label="Kontaktní osoba je stejná jako odpovědná"
-                name="contactSameAsResponsible"
-              />
-              <FormKit
-                type="checkbox"
-                checked
-                label="Potvrzuji, že jsem oprávněn jednat jménem subjektu"
-                name="confirmation"
-              />
-              <FormKit
-                type="group"
-                name="contact"
-                v-if="!metadata.contactSameAsResponsible"
-              >
-                <label class="font-semibold text-zinc-200"
-                  >Kontaktní osoba</label
-                >
-                <FormKit type="text" label="Jméno" name="contact_name" />
-                <FormKit type="text" label="Telefon" name="contact_phone" />
-                <FormKit type="email" label="Email" name="contact_email" />
-              </FormKit>
-            </FormKit>
+            <label class="font-semibold text-zinc-200">Odpovědná osoba</label>
+            <FormKit type="text" label="Jméno" name="jmeno" />
+            <FormKit type="text" label="Telefon" name="telefon" />
+            <FormKit type="email" label="Email" name="email" />
+            <FormKit
+              type="checkbox"
+              label="Kontaktní osoba je stejná jako odpovědná"
+              name="contactSameAsResponsible"
+            />
+            <FormKit
+              type="checkbox"
+              checked
+              label="Potvrzuji, že jsem oprávněn jednat jménem subjektu"
+              name="confirmation"
+            />
+            <label class="font-semibold text-zinc-200">Kontaktní osoba</label>
+            <FormKit type="text" label="Jméno" name="jmeno" />
+            <FormKit type="text" label="Telefon" name="telefon" />
+            <FormKit type="email" label="Email" name="email" />
           </FormKit>
           <FormKit
             :type="('step' as any)"
@@ -278,60 +379,58 @@ const onSubmit = async () => {
             previousLabel="Zpět"
             nextLabel="Pokračovat"
           >
-            <FormKit type="group" name="address">
-              <FormKit
-                type="radio"
-                label="Místo přistavění pumpy"
-                name="typAdresy"
-                :options="druhyAdresy"
-                validation="required"
-              />
-              <FormKit
-                v-if="form.typAdresy === 'existujici'"
-                type="search"
-                label="Adresa"
-                name="adresa"
-                placeholder="Vyhledat adresu..."
-                validation="required"
-              />
-              <FormKit
-                v-else-if="form.typAdresy === 'pozemek'"
-                type="text"
-                help="Nejbližší existující adresa"
-                name="pozemek"
-                placeholder="Číslo pozemku"
-                validation="required"
-              />
-              <FormKit
-                type="text"
-                :value="form.psc"
-                name="psc"
-                label="PSČ"
-                placeholder="123 00"
-                validation="required"
-              />
-              <FormKit
-                type="text"
-                name="kraj"
-                label="Kraj"
-                placeholder="Středočeský"
-                validation="required"
-              />
-              <FormKit
-                type="text"
-                label="Město"
-                placeholder="Město"
-                name="mesto"
-                validation="required"
-              />
-              <FormKit
-                type="textarea"
-                label="Poznámka"
-                name="poznamka"
-                placeholder="Poznámka k adrese"
-                max=""
-              />
-            </FormKit>
+            <FormKit
+              type="radio"
+              label="Místo přistavění pumpy"
+              name="typAdresy"
+              :options="druhyAdresy"
+              validation="required"
+            />
+            <FormKit
+              v-if="form.address_type === 'existujici'"
+              type="search"
+              label="Adresa"
+              name="adresa"
+              placeholder="Vyhledat adresu..."
+              validation="required"
+            />
+            <FormKit
+              v-else-if="form.address_type === 'pozemek'"
+              type="text"
+              help="Nejbližší existující adresa"
+              name="pozemek"
+              placeholder="Číslo pozemku"
+              validation="required"
+            />
+            <FormKit
+              type="text"
+              :value="form.address_zip"
+              name="psc"
+              label="PSČ"
+              placeholder="123 00"
+              validation="required"
+            />
+            <FormKit
+              type="text"
+              name="kraj"
+              label="Kraj"
+              placeholder="Středočeský"
+              validation="required"
+            />
+            <FormKit
+              type="text"
+              label="Město"
+              placeholder="Město"
+              name="mesto"
+              validation="required"
+            />
+            <FormKit
+              type="textarea"
+              label="Poznámka"
+              name="poznamka"
+              placeholder="Poznámka k adrese"
+              max=""
+            />
           </FormKit>
           <FormKit
             :type="('step' as any)"
@@ -339,7 +438,7 @@ const onSubmit = async () => {
             label="Beton"
             previousLabel="Zpět"
           >
-            <FormKit type="group" name="configuration">
+            <FormKit type="group" name="configuration" v-model="form.config">
               <FormKit
                 type="select"
                 label="Beton"
@@ -348,10 +447,14 @@ const onSubmit = async () => {
                 validation="required"
               />
               <FormKit
-                required
                 type="text"
                 label="Kvalita/Typ"
                 name="kvalitaTyp"
+                validation="required"
+                :validation-messages="{
+                  required: 'Toto pole je povinné',
+                }"
+                placeholder="Zadejte kvalitu/typ betonu"
               />
               <FormKit
                 type="select"
@@ -390,7 +493,7 @@ const onSubmit = async () => {
               <FormKit
                 type="checkbox"
                 label="Zapamatovat pro příště"
-                name="remember"
+                v-model="metadata.remember"
               />
             </FormKit>
           </FormKit>
@@ -398,7 +501,25 @@ const onSubmit = async () => {
       </FormKit>
     </div>
   </div>
-  <p class="font-semibold text-lg text-green-400 m-5">
+  <p class="m-5 font-semibold text-green-400 text-lg">
     Vaše poptávka byla úspěšně odeslána. Děkujeme.
   </p>
 </template>
+
+<style>
+:root {
+  --dp-font-family: "Inter", sans-serif;
+  --dp-menu-padding: 1rem;
+  --dp-menu-min-width: 20rem;
+  --dp-font-size: 1.25rem;
+  --dp-time-font-size: 3rem;
+  --dp-cell-size: 2.5rem;
+  --dp-border-radius: 0.75rem;
+  --dp-cell-border-radius: 0.75rem;
+}
+
+.dp__theme_dark {
+  --dp-primary-color: #9a7d0d;
+  --dp-background-color: #18181b;
+}
+</style>

@@ -1,10 +1,11 @@
 {
-    "compilerOptions": {
-        "lib": [
-            "esnext"
-        ],
-        "types": [
-            "@cloudflare/workers-types"
-        ]
-    }
+    "files": [],
+    "references": [
+        {
+            "path": "./tsconfig.app.json"
+        },
+        {
+            "path": "./tsconfig.node.json"
+        }
+    ]
 }

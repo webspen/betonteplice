@@ -1,55 +1,55 @@
 {
-  "name": "betonteplice.cz",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "build": "vue-tsc -b && vite build",
-    "dev": "vite",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "@aws-sdk/client-sesv2": "^3.669.0",
-    "@formkit/addons": "^1.6.7",
-    "@formkit/icons": "^1.6.7",
-    "@formkit/vue": "^1.6.5",
-    "@formkit/zod": "^1.6.7",
-    "@googlemaps/js-api-loader": "^1.16.8",
-    "@neondatabase/serverless": "^0.10.1",
-    "@unhead/vue": "^1.11.6",
-    "@vuepic/vue-datepicker": "^9.0.3",
-    "@vueuse/core": "^11.0.3",
-    "aws-lambda": "^1.0.7",
-    "cloudflare": "^3.5.0",
-    "dayjs": "^1.11.13",
-    "lucide-vue-next": "^0.439.0",
-    "mimetext": "^3.0.24",
-    "mjml": "^4.15.3",
-    "sst": "3.2.61",
-    "superjson": "^2.2.1",
-    "vue": "^3.4.37",
-    "vue-router": "^4.4.3",
-    "zod": "^3.23.8"
-  },
-  "devDependencies": {
-    "@cloudflare/workers-types": "^4.20241004.0",
-    "@tailwindcss/typography": "^0.5.15",
-    "@types/aws-lambda": "8.10.145",
-    "@types/bun": "^1.1.9",
-    "@types/node": "^22.5.4",
-    "@vitejs/plugin-vue": "^5.1.2",
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.45",
-    "tailwindcss": "^3.4.10",
-    "typescript": "^5.5.3",
-    "vite": "^5.4.1",
-    "vue-tsc": "^2.0.29"
-  },
-  "trustedDependencies": [
-    "aws-sdk",
-    "core-js-pure",
-    "esbuild",
-    "vue-demi",
-    "workerd"
-  ]
+    "name": "betonteplice.cz",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "scripts": {
+        "build": "vue-tsc -b && vite build",
+        "dev": "vite",
+        "preview": "vite preview"
+    },
+    "dependencies": {
+        "@aws-sdk/client-sesv2": "^3.669.0",
+        "@formkit/addons": "^1.6.7",
+        "@formkit/icons": "^1.6.7",
+        "@formkit/vue": "^1.6.5",
+        "@formkit/zod": "^1.6.7",
+        "@googlemaps/js-api-loader": "^1.16.8",
+        "@neondatabase/serverless": "^0.10.1",
+        "@unhead/vue": "^1.11.6",
+        "@vuepic/vue-datepicker": "^9.0.3",
+        "@vueuse/core": "^11.0.3",
+        "aws-lambda": "^1.0.7",
+        "cloudflare": "^3.5.0",
+        "dayjs": "^1.11.13",
+        "lucide-vue-next": "^0.439.0",
+        "mimetext": "^3.0.24",
+        "mjml": "^4.15.3",
+        "sst": "3.2.61",
+        "superjson": "^2.2.1",
+        "vue": "^3.4.37",
+        "vue-router": "^4.4.3",
+        "zod": "^3.23.8"
+    },
+    "devDependencies": {
+        "@cloudflare/workers-types": "^4.20241004.0",
+        "@tailwindcss/typography": "^0.5.15",
+        "@types/aws-lambda": "8.10.145",
+        "@types/bun": "^1.1.9",
+        "@types/node": "^22.5.4",
+        "@vitejs/plugin-vue": "^5.1.2",
+        "autoprefixer": "^10.4.20",
+        "postcss": "^8.4.45",
+        "tailwindcss": "^3.4.10",
+        "typescript": "^5.5.3",
+        "vite": "^5.4.1",
+        "vue-tsc": "^2.0.29"
+    },
+    "trustedDependencies": [
+        "aws-sdk",
+        "core-js-pure",
+        "esbuild",
+        "vue-demi",
+        "workerd"
+    ]
 }
