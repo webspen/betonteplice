@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { AresApiResponse } from "../types";
-import { onMounted, computed } from "vue";
+import { onMounted, computed, ref } from "vue";
 import { watchDebounced } from "@vueuse/core";
-import { form, metadata, step } from "./state";
+import { form } from "./state";
 import { Loader } from "@googlemaps/js-api-loader";
 import { useAsyncState } from "@vueuse/core";
 import type { DatePickerMarker } from "@vuepic/vue-datepicker";
@@ -16,8 +16,8 @@ async function ares(ico: string): Promise<AresApiResponse> {
 }
 
 const druhyAdresy = [
-  { value: "existujici", label: "Existující adresa" },
-  { value: "pozemek", label: "Stavba - Pozemek" },
+  { value: "existing", label: "Existující adresa" },
+  { value: "construction", label: "Stavba - Pozemek" },
 ];
 
 onMounted(async () => {
@@ -27,7 +27,7 @@ onMounted(async () => {
     language: "cs",
   });
   const Places = await loader.importLibrary("places");
-  const input = document.querySelector("input[name=adresa]");
+  const input = document.getElementById("address-query") as HTMLInputElement;
 
   console.log("[Google Maps] input", input);
 
@@ -178,6 +178,12 @@ const markers = computed<DatePickerMarker[]>(() => [
   },
 ]);
 
+const
+    contactSameAsResponsible = ref<boolean>(true),
+    confirmation = ref<boolean>(false),
+    remember = ref<boolean>(false),
+    addressQuery = ref<string>("");
+
 watchDebounced(
   () => form,
   async () => {
@@ -208,15 +214,7 @@ watchDebounced(
   }
 );
 
-const nextStep = () => {
-  if (step.value < 4) step.value++;
-};
-
-const prevStep = () => {
-  if (step.value > 1) step.value--;
-};
-
-const onSubmit = async (formData, node) => {
+const onSubmit = async (formData: any, node: any) => {
   console.log({ formData, node });
 
   // const res = await fetch(import.meta.env.VITE_API_URL, {
@@ -295,17 +293,16 @@ const onSubmit = async (formData, node) => {
           </FormKit>
           <FormKit
             :type="('step' as any)"
-            name="subject"
             label="Subjekt"
             previousLabel="Zpět"
             nextLabel="Pokračovat"
           >
             <FormKit
               type="select"
-              name="typOsoby"
+              name="customer_type"
               v-model="form.customer_type"
               label="Typ osoby"
-              :options="['fyzicka', 'podnikatel', 'pravnicka', 'baracnik']"
+              :options="typyOsob"
               required
             />
             <FormKit
@@ -322,6 +319,7 @@ const onSubmit = async (formData, node) => {
               type="checkbox"
               label="Plátce DPH"
               field="customer_vat"
+              v-model="form.customer_vat"
             />
             <FormKit
               v-if="form.customer_type !== 'baracnik' && form.customer_vat"
@@ -353,28 +351,29 @@ const onSubmit = async (formData, node) => {
             nextLabel="Pokračovat"
           >
             <label class="font-semibold text-zinc-200">Odpovědná osoba</label>
-            <FormKit type="text" label="Jméno" name="jmeno" />
-            <FormKit type="text" label="Telefon" name="telefon" />
-            <FormKit type="email" label="Email" name="email" />
+            <FormKit type="text" label="Jméno" name="customer_name" />
+            <FormKit type="text" label="Telefon" name="customer_phone" />
+            <FormKit type="email" label="Email" name="customer_email" />
             <FormKit
               type="checkbox"
               label="Kontaktní osoba je stejná jako odpovědná"
-              name="contactSameAsResponsible"
+              v-model="contactSameAsResponsible"
             />
             <FormKit
               type="checkbox"
               checked
               label="Potvrzuji, že jsem oprávněn jednat jménem subjektu"
-              name="confirmation"
+              v-model="confirmation"
             />
-            <label class="font-semibold text-zinc-200">Kontaktní osoba</label>
-            <FormKit type="text" label="Jméno" name="jmeno" />
-            <FormKit type="text" label="Telefon" name="telefon" />
-            <FormKit type="email" label="Email" name="email" />
+            <div :class="{ 'hidden': contactSameAsResponsible }">
+              <label class="font-semibold text-zinc-200">Kontaktní osoba</label>
+              <FormKit type="text" label="Jméno" name="contact_name" />
+              <FormKit type="text" label="Telefon" name="contact_phone" />
+              <FormKit type="email" label="Email" name="contact_email" />
+            </div>
           </FormKit>
           <FormKit
             :type="('step' as any)"
-            name="address"
             label="Adresa"
             previousLabel="Zpět"
             nextLabel="Pokračovat"
@@ -382,74 +381,75 @@ const onSubmit = async (formData, node) => {
             <FormKit
               type="radio"
               label="Místo přistavění pumpy"
-              name="typAdresy"
+              name="address_type"
+              v-model="form.address_type"
               :options="druhyAdresy"
               validation="required"
             />
             <FormKit
-              v-if="form.address_type === 'existujici'"
+              id="address-query"
+              v-if="form.address_type === 'existing'"
               type="search"
               label="Adresa"
-              name="adresa"
               placeholder="Vyhledat adresu..."
-              validation="required"
+              v-model="addressQuery"
             />
             <FormKit
-              v-else-if="form.address_type === 'pozemek'"
+              v-else-if="form.address_type === 'construction'"
               type="text"
               help="Nejbližší existující adresa"
-              name="pozemek"
+              name="address_note"
               placeholder="Číslo pozemku"
               validation="required"
             />
             <FormKit
               type="text"
               :value="form.address_zip"
-              name="psc"
+              name="address_zip"
               label="PSČ"
               placeholder="123 00"
               validation="required"
             />
             <FormKit
               type="text"
-              name="kraj"
+              :value="form.address_state"
+              name="address_state"
               label="Kraj"
               placeholder="Středočeský"
               validation="required"
             />
             <FormKit
               type="text"
+              :value="form.address_city"
               label="Město"
               placeholder="Město"
-              name="mesto"
+              name="address_city"
               validation="required"
             />
             <FormKit
               type="textarea"
               label="Poznámka"
-              name="poznamka"
+              name="address_note"
               placeholder="Poznámka k adrese"
               max=""
             />
           </FormKit>
           <FormKit
             :type="('step' as any)"
-            name="configuration"
             label="Beton"
             previousLabel="Zpět"
           >
-            <FormKit type="group" name="configuration" v-model="form.config">
               <FormKit
                 type="select"
                 label="Beton"
-                name="druhBetonu"
+                name="config.type"
                 :options="druhyBetonu"
                 validation="required"
               />
               <FormKit
                 type="text"
                 label="Kvalita/Typ"
-                name="kvalitaTyp"
+                name="config.quality"
                 validation="required"
                 :validation-messages="{
                   required: 'Toto pole je povinné',
@@ -459,7 +459,7 @@ const onSubmit = async (formData, node) => {
               <FormKit
                 type="select"
                 label="Tloušťka kameniva (max. 16mm)"
-                name="tloustkaKameniva"
+                name="config.thickness"
                 :options="[
                   { value: 8, label: '4/8' },
                   { value: 16, label: '8/16' },
@@ -468,7 +468,7 @@ const onSubmit = async (formData, node) => {
               <FormKit
                 type="number"
                 label="Délka hadic"
-                name="delkaHadic"
+                name="config.hose_length"
                 placeholder="bm"
                 validation="required|number"
                 max="100"
@@ -477,7 +477,7 @@ const onSubmit = async (formData, node) => {
               <FormKit
                 type="number"
                 label="Do jaké výšky budeme beton čerpat"
-                name="vyska"
+                name="config.volume_height"
                 placeholder="m"
                 validation="required|number|max:10"
                 max="10"
@@ -485,7 +485,7 @@ const onSubmit = async (formData, node) => {
               <FormKit
                 type="textarea"
                 label="Stručný popis práce"
-                name="poznamka"
+                name="config.description"
                 placeholder="Co se bude dělat (max 100 znaků)"
                 max="100"
               />
@@ -493,9 +493,8 @@ const onSubmit = async (formData, node) => {
               <FormKit
                 type="checkbox"
                 label="Zapamatovat pro příště"
-                v-model="metadata.remember"
+                v-model="remember"
               />
-            </FormKit>
           </FormKit>
         </FormKit>
       </FormKit>
