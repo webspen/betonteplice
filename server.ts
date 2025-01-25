@@ -1,4 +1,5 @@
 import { serve } from "bun";
+import calendar from "@googleapis/calendar"
 import { handler as updateOrderStatusHandler } from "./src/functions/updateOrderStatus";
 import { handler as createOrderHandler } from "./src/functions/createOrder";
 import { handler as getOrdersHandler } from "./src/functions/getOrders";
@@ -16,9 +17,23 @@ const corsHeaders = {
 const server = serve({
     port: 3000,
     async fetch(req) {
-        // gapi.client.init({
-
-        // })
+        calendar.calendar({
+            version: "v3",
+            auth: process.env.GOOGLE_API_KEY,
+        }).events.insert({
+            requestBody: {
+                summary: "Test event",
+                description: "This is a test event",
+                start: {
+                    dateTime: "2022-01-01T00:00:00Z",
+                    timeZone: "Europe/Prague",
+                },
+                end: {
+                    dateTime: "2022-01-01T01:00:00Z",
+                    timeZone: "Europe/Prague",
+                }
+            },
+        })
 
         // Always add CORS headers to the response
         const headers = new Headers(corsHeaders);

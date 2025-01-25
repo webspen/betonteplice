@@ -50,11 +50,11 @@ onMounted(async () => {
     place.address_components.forEach((component: any) => {
       console.log("[Google Maps] change - component", component);
       if (component.types.includes("postal_code")) {
-        form.address_zip = component.long_name;
+        form.value.address.address_zip = component.long_name;
       } else if (component.types.includes("locality")) {
-        form.address_city = component.long_name;
+        form.value.address.address_city = component.long_name;
       } else if (component.types.includes("administrative_area_level_1")) {
-        form.address_note = component.long_name;
+        form.value.address.address_note = component.long_name;
       }
     });
   });
@@ -187,25 +187,25 @@ const
 watchDebounced(
   () => form,
   async () => {
-    if (form.customer_cid) {
+    if (form.value.customer.customer_cid) {
       const { pravniForma, sidlo, obchodniJmeno } = await ares(
-        form.customer_cid
+        form.value.customer.customer_cid
       );
 
       const psc = sidlo.psc.toString();
 
       // https://www.cnb.cz/export/sites/cnb/cs/statistika/.galleries/predpisy_CNB_statistika/predpisy_menove_bank_stat/vykazy_metodika_2011/cast_V/download/5_BA0062_1101.pdf
       if (Number(pravniForma) > 100 && Number(pravniForma) < 108) {
-        form.customer_type = "podnikatel";
-        form.contact_name = obchodniJmeno;
+        form.value.customer.customer_type = "podnikatel";
+        form.value.contact.contact_name = obchodniJmeno;
       } else {
-        form.customer_type = "pravnicka";
+        form.value.customer.customer_type = "pravnicka";
       }
 
-      form.address_street = sidlo.textovaAdresa;
-      form.address_city = sidlo.nazevObce;
-      form.address_zip = `${psc.slice(0, 3)} ${psc.slice(3)}`;
-      form.customer_name = obchodniJmeno;
+      form.value.address.address_street = sidlo.textovaAdresa;
+      form.value.address.address_city = sidlo.nazevObce;
+      form.value.address.address_zip = `${psc.slice(0, 3)} ${psc.slice(3)}`;
+      form.value.customer.customer_name = obchodniJmeno;
     }
   },
   {
@@ -236,18 +236,27 @@ const corsHeaders = {
 // const orders = await fetch(`${import.meta.env.VITE_API_URL}/orders`);
 // console.log(orders);
 
-const onSubmit = async (formData, node) => {
+const onSubmit = async (formData: any, node: any) => {
   try {
     const res = await fetch(`${import.meta.env.VITE_API_URL}/orders`, {
       method: "POST",
       mode: "no-cors",
       headers: corsHeaders,
-      body: JSON.stringify(form),
-    });
+      body: JSON.stringify(formData),
+    }).finally(() => console.log({ formData, node }))
 
-    if (!res.ok) {
-      throw new Error("Failed to submit order");
+    const transformed = {
+        ...formData.value.customer,
+        ...formData.value.contact,
+        ...formData.value.address,
+        config: JSON.stringify(formData.value.config),
+        date: form.date,
+        time: form.time,
     }
+
+    console.log({ transformed })
+
+    if (!res.ok) throw new Error("Failed to submit order");
 
     const data = await res.json();
     console.log("Order submitted:", data);
@@ -267,7 +276,7 @@ const onSubmit = async (formData, node) => {
         :value="form"
         submitLabel="Odeslat poptávku"
       >
-        <FormKit :type="('multi-step' as any)" tab-style="progress">
+        <FormKit :type="('multi-step' as any)" tab-style="progress" name="value">
           <FormKit
             :type="('step' as any)"
             name="reservation"
@@ -324,19 +333,20 @@ const onSubmit = async (formData, node) => {
           <FormKit
             :type="('step' as any)"
             label="Subjekt"
+            name="customer"
             previousLabel="Zpět"
             nextLabel="Pokračovat"
           >
             <FormKit
               type="select"
               name="customer_type"
-              v-model="form.customer_type"
+              v-model="form.value.customer.customer_type"
               label="Typ osoby"
               :options="typyOsob"
               required
             />
             <FormKit
-              v-if="['podnikatel', 'pravnicka'].includes(form.customer_type)"
+              v-if="['podnikatel', 'pravnicka'].includes(form.value.customer.customer_type)"
               type="text"
               label="IČO"
               name="ico"
@@ -345,14 +355,14 @@ const onSubmit = async (formData, node) => {
               validation="required|number"
             />
             <FormKit
-              v-if="form.customer_type !== 'baracnik'"
+              v-if="form.value.customer.customer_type !== 'baracnik'"
               type="checkbox"
               label="Plátce DPH"
               field="customer_vat"
-              v-model="form.customer_vat"
+              v-model="form.value.customer.customer_vat"
             />
             <FormKit
-              v-if="form.customer_type !== 'baracnik' && form.customer_vat"
+              v-if="form.value.customer.customer_type !== 'baracnik' && form.value.customer.customer_vat"
               type="text"
               label="DIČ"
               name="dic"
@@ -362,9 +372,9 @@ const onSubmit = async (formData, node) => {
             <FormKit
               type="text"
               name="jmeno"
-              v-model="form.customer_name"
+              v-model="form.value.customer.customer_name"
               :label="
-                form.customer_type === 'pravnicka'
+                form.value.customer.customer_type === 'pravnicka'
                   ? 'Obchodní Jméno'
                   : 'Jméno a Příjmení'
               "
@@ -375,7 +385,7 @@ const onSubmit = async (formData, node) => {
           </FormKit>
           <FormKit
             :type="('step' as any)"
-            name="persons"
+            name="contact"
             label="Osoby"
             previousLabel="Zpět"
             nextLabel="Pokračovat"
@@ -405,6 +415,7 @@ const onSubmit = async (formData, node) => {
           <FormKit
             :type="('step' as any)"
             label="Adresa"
+            name="address"
             previousLabel="Zpět"
             nextLabel="Pokračovat"
           >
@@ -412,20 +423,21 @@ const onSubmit = async (formData, node) => {
               type="radio"
               label="Místo přistavění pumpy"
               name="address_type"
-              v-model="form.address_type"
+              v-model="form.value.address.address_type"
               :options="druhyAdresy"
               validation="required"
             />
             <FormKit
               id="address-query"
-              v-if="form.address_type === 'existing'"
+              v-if="form.value.address.address_type === 'existing'"
               type="search"
+              name="address_full"
               label="Adresa"
               placeholder="Vyhledat adresu..."
               v-model="addressQuery"
             />
             <FormKit
-              v-else-if="form.address_type === 'construction'"
+              v-else-if="form.value.address.address_type === 'construction'"
               type="text"
               help="Nejbližší existující adresa"
               name="address_note"
@@ -434,7 +446,7 @@ const onSubmit = async (formData, node) => {
             />
             <FormKit
               type="text"
-              :value="form.address_zip"
+              :value="form.value.address.address_zip"
               name="address_zip"
               label="PSČ"
               placeholder="123 00"
@@ -442,7 +454,7 @@ const onSubmit = async (formData, node) => {
             />
             <FormKit
               type="text"
-              :value="form.address_state"
+              :value="form.value.address.address_state"
               name="address_state"
               label="Kraj"
               placeholder="Středočeský"
@@ -450,7 +462,7 @@ const onSubmit = async (formData, node) => {
             />
             <FormKit
               type="text"
-              :value="form.address_city"
+              :value="form.value.address.address_city"
               label="Město"
               placeholder="Město"
               name="address_city"
@@ -467,19 +479,20 @@ const onSubmit = async (formData, node) => {
           <FormKit
             :type="('step' as any)"
             label="Beton"
+            name="config"
             previousLabel="Zpět"
           >
               <FormKit
                 type="select"
                 label="Beton"
-                name="config.type"
+                name="type"
                 :options="druhyBetonu"
                 validation="required"
               />
               <FormKit
                 type="text"
                 label="Kvalita/Typ"
-                name="config.quality"
+                name="quality"
                 validation="required"
                 :validation-messages="{
                   required: 'Toto pole je povinné',
@@ -489,7 +502,7 @@ const onSubmit = async (formData, node) => {
               <FormKit
                 type="select"
                 label="Tloušťka kameniva (max. 16mm)"
-                name="config.thickness"
+                name="thickness"
                 :options="[
                   { value: 8, label: '4/8' },
                   { value: 16, label: '8/16' },
@@ -498,7 +511,7 @@ const onSubmit = async (formData, node) => {
               <FormKit
                 type="number"
                 label="Délka hadic"
-                name="config.hose_length"
+                name="hose_length"
                 placeholder="bm"
                 validation="required|number"
                 max="100"
@@ -507,7 +520,7 @@ const onSubmit = async (formData, node) => {
               <FormKit
                 type="number"
                 label="Do jaké výšky budeme beton čerpat"
-                name="config.volume_height"
+                name="volume_height"
                 placeholder="m"
                 validation="required|number|max:10"
                 max="10"
@@ -515,7 +528,7 @@ const onSubmit = async (formData, node) => {
               <FormKit
                 type="textarea"
                 label="Stručný popis práce"
-                name="config.description"
+                name="description"
                 placeholder="Co se bude dělat (max 100 znaků)"
                 max="100"
               />
