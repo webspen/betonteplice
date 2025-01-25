@@ -1,5 +1,5 @@
 import { neon } from '@neondatabase/serverless';
-import type { APIGatewayProxyHandlerV2 } from 'aws-lambda';
+// import type { Handler } from 'aws-lambda';
 
 export async function handler(event: any) {
     try {

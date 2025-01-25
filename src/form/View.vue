@@ -214,6 +214,8 @@ watchDebounced(
   }
 );
 
+const step = ref(1)
+
 const nextStep = () => {
   if (step.value < 4) step.value++;
 };
@@ -231,8 +233,8 @@ const corsHeaders = {
 };
 
 // fetch orders
-const orders = await fetch(`${import.meta.env.VITE_API_URL}/orders`);
-console.log(orders);
+// const orders = await fetch(`${import.meta.env.VITE_API_URL}/orders`);
+// console.log(orders);
 
 const onSubmit = async (formData, node) => {
   try {
