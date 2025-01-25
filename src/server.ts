@@ -1,0 +1,90 @@
+import { serve } from "bun";
+import { handler as createOrderHandler } from "../functions/createOrder";
+import { handler as getOrdersHandler } from "../functions/getOrders";
+import { handler as updateOrderStatusHandler } from "../functions/updateOrderStatus";
+
+const ALLOWED_ORIGIN = "*";
+
+const corsHeaders = {
+    "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "*",
+    "Access-Control-Allow-Credentials": "true",
+    "Access-Control-Max-Age": "86400",
+};
+
+const server = serve({
+    port: 3000,
+    async fetch(req) {
+        // Always add CORS headers to the response
+        const headers = new Headers(corsHeaders);
+        headers.set("Content-Type", "application/json");
+
+        // Handle preflight requests
+        if (req.method === "OPTIONS") {
+            return new Response(null, {
+                headers,
+                status: 204,
+            });
+        }
+
+        const url = new URL(req.url);
+
+        try {
+            // Create order
+            if (url.pathname === "/api/orders" && req.method === "POST") {
+                const response = await createOrderHandler({
+                    body: await req.text(),
+                    requestContext: {},
+                    queryStringParameters: {},
+                } as any);
+
+                return new Response(response.body, {
+                    status: response.statusCode,
+                    headers
+                });
+            }
+
+            // Get orders
+            if (url.pathname === "/api/orders" && req.method === "GET") {
+                const response = await getOrdersHandler({
+                    queryStringParameters: Object.fromEntries(url.searchParams),
+                    requestContext: {},
+                } as any);
+
+                return new Response(response.body, {
+                    status: response.statusCode,
+                    headers
+                });
+            }
+
+            // Update order status
+            if (url.pathname.match(/\/api\/orders\/\d+\/status/) && req.method === "PUT") {
+                const orderId = url.pathname.split("/")[3];
+                const response = await updateOrderStatusHandler({
+                    pathParameters: { orderId },
+                    body: await req.text(),
+                    requestContext: {},
+                } as any);
+
+                return new Response(response.body, {
+                    status: response.statusCode,
+                    headers
+                });
+            }
+
+            return new Response(JSON.stringify({ message: "Not Found" }), {
+                status: 404,
+                headers
+            });
+        } catch (error) {
+            console.error("Server error:", error);
+            return new Response(JSON.stringify({ message: "Internal Server Error" }), {
+                status: 500,
+                headers
+            });
+        }
+    },
+});
+
+console.log(`Server running at http://localhost:${server.port}`);

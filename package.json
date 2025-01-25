@@ -15,7 +15,7 @@
         "@formkit/vue": "^1.6.5",
         "@formkit/zod": "^1.6.7",
         "@googlemaps/js-api-loader": "^1.16.8",
-        "@neondatabase/serverless": "^0.10.1",
+        "@neondatabase/serverless": "^0.10.4",
         "@unhead/vue": "^1.11.6",
         "@vuepic/vue-datepicker": "^9.0.3",
         "@vueuse/core": "^11.0.3",
@@ -34,7 +34,7 @@
     "devDependencies": {
         "@cloudflare/workers-types": "^4.20241004.0",
         "@tailwindcss/typography": "^0.5.15",
-        "@types/aws-lambda": "8.10.145",
+        "@types/aws-lambda": "^8.10.147",
         "@types/bun": "^1.1.9",
         "@types/node": "^22.5.4",
         "@vitejs/plugin-vue": "^5.1.2",

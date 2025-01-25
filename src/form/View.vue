@@ -216,18 +216,38 @@ const prevStep = () => {
   if (step.value > 1) step.value--;
 };
 
+const corsHeaders = {
+  // "Access-Control-Allow-Origin": "*",
+  // "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  // "Access-Control-Allow-Headers":
+  //   "Content-Type, Authorization, Content-Length, X-Requested-With",
+  "Content-Type": "application/json",
+};
+
+// fetch orders
+const orders = await fetch(`${import.meta.env.VITE_API_URL}/orders`);
+console.log(orders);
+
 const onSubmit = async (formData, node) => {
-  console.log({ formData, node });
+  try {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/orders`, {
+      method: "POST",
+      mode: "no-cors",
+      headers: corsHeaders,
+      body: JSON.stringify(form),
+    });
 
-  // const res = await fetch(import.meta.env.VITE_API_URL, {
-  //   method: "POST",
-  //   headers: {
-  //     "Content-Type": "application/json",
-  //   },
-  //   body: JSON.stringify(form),
-  // });
+    if (!res.ok) {
+      throw new Error("Failed to submit order");
+    }
 
-  console.log("[Submit]", form);
+    const data = await res.json();
+    console.log("Order submitted:", data);
+    // Show success message or redirect
+  } catch (error) {
+    console.error("Error submitting order:", error);
+    // Show error message
+  }
 };
 </script>
 <template>
