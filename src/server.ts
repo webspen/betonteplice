@@ -1,7 +1,7 @@
 import { serve } from "bun";
-import { handler as createOrderHandler } from "../functions/createOrder";
-import { handler as getOrdersHandler } from "../functions/getOrders";
-import { handler as updateOrderStatusHandler } from "../functions/updateOrderStatus";
+import { handler as updateOrderStatusHandler } from "./functions/updateOrderStatus";
+import { handler as createOrderHandler } from "./functions/createOrder";
+import { handler as getOrdersHandler } from "./functions/getOrders";
 
 const ALLOWED_ORIGIN = "*";
 
@@ -16,6 +16,10 @@ const corsHeaders = {
 const server = serve({
     port: 3000,
     async fetch(req) {
+        gapi.client.init({
+
+        })
+
         // Always add CORS headers to the response
         const headers = new Headers(corsHeaders);
         headers.set("Content-Type", "application/json");
