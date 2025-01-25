@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { RouterView } from "vue-router"
-import { ref } from "vue"
 import { Menu } from "lucide-vue-next"
 import logo from "@/assets/logo.png"
+import { ref } from "vue"
 
 const isMenuOpen = ref(false)
 const toggleMenu = () => isMenuOpen.value = !isMenuOpen.value
@@ -41,14 +41,16 @@ const toggleMenu = () => isMenuOpen.value = !isMenuOpen.value
             <ul
                 class="flex flex-wrap justify-center items-center mb-6 text-zinc-900 dark:text-white">
                 <li>
-                    <a href="/obchodni-podminky" class="mr-4 md:mr-6 hover:underline">Obchodní Podmínky</a>
+                    <a href="/obchodni-podminky" class="mr-4 md:mr-6 hover:underline whitespace-nowrap">Obchodní Podmínky</a>
                 </li>
                 <li>
-                    <a href="/zpracovani-osobnich-udaju" class="mr-4 md:mr-6 hover:underline">Zásady Zpracování Osobních Údajů</a>
+                    <a href="/zpracovani-osobnich-udaju" class="mr-4 md:mr-6 hover:underline whitespace-nowrap">Zásady
+                        Zpracování Osobních Údajů</a>
                 </li>
             </ul>
-            <span class="text-sm text-zinc-500 sm:text-center dark:text-zinc-400">&copy; 2016-{{ new Date().getFullYear() }} <a
-                    href="/" class="hover:underline">Beton Teplice s.r.o.</a>. Všechna práva vyhrazena.</span>
+            <span class="text-sm text-zinc-500 sm:text-center dark:text-zinc-400">&copy; 2016-{{ new
+                Date().getFullYear() }} <a href="/" class="hover:underline whitespace-nowrap">Beton Teplice
+                    s.r.o.</a>. Všechna práva vyhrazena.</span>
         </div>
     </footer>
 </template>

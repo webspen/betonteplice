@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from "vue"
-import RequestSection from "../components/admin/RequestSection.vue"
-import type { UserRequest } from "../types"
-import { useAsyncState } from "@vueuse/core"
+import RequestSection from "@/components/admin/RequestSection.vue"
 import DatePicker from "@vuepic/vue-datepicker"
 import "@vuepic/vue-datepicker/dist/main.css"
 
@@ -13,7 +11,7 @@ import "@vuepic/vue-datepicker/dist/main.css"
 // }, [])
 
 const requests = {
-    state: ref(fakeData),
+    state: ref<any[]>([]),
     isLoading: ref(false),
 }
 

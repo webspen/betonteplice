@@ -1,13 +1,13 @@
 <script setup lang="ts">
+import type { DatePickerMarker } from "@vuepic/vue-datepicker";
+import { Loader } from "@googlemaps/js-api-loader";
+import DatePicker from "@vuepic/vue-datepicker";
 import type { AresApiResponse } from "../types";
 import { onMounted, computed, ref } from "vue";
-import { watchDebounced } from "@vueuse/core";
-import { form } from "./state";
-import { Loader } from "@googlemaps/js-api-loader";
-import { useAsyncState } from "@vueuse/core";
-import type { DatePickerMarker } from "@vuepic/vue-datepicker";
-import DatePicker from "@vuepic/vue-datepicker";
 import "@vuepic/vue-datepicker/dist/main.css";
+import { watchDebounced } from "@vueuse/core";
+import { useAsyncState } from "@vueuse/core";
+import { form } from "./state";
 
 async function ares(ico: string): Promise<AresApiResponse> {
   const response = await fetch(`${import.meta.env.VITE_ARES_URL}/${ico}`);
