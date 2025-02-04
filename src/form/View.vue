@@ -1,536 +1,1007 @@
 <script setup lang="ts">
 import type { AresApiResponse } from "../types";
-import { onMounted, computed, ref } from "vue";
+import { onMounted, computed, ref, watch } from "vue";
 import { watchDebounced } from "@vueuse/core";
-import { form } from "./state";
+import { z } from "zod";
 import { Loader } from "@googlemaps/js-api-loader";
 import { useAsyncState } from "@vueuse/core";
 import type { DatePickerMarker } from "@vuepic/vue-datepicker";
 import DatePicker from "@vuepic/vue-datepicker";
 import "@vuepic/vue-datepicker/dist/main.css";
 
-async function ares(ico: string): Promise<AresApiResponse> {
-  const response = await fetch(`${import.meta.env.VITE_ARES_URL}/${ico}`);
-  const data = await response.json();
-  return data as AresApiResponse;
-}
+// Validation schema
+const orderSchema = z.object({
+  customer_type: z.enum(["fyzicka", "podnikatel", "pravnicka", "baracnik"]),
+  customer_cid: z.string().optional(),
+  customer_name: z.string().min(3).max(200),
+  customer_vat: z.boolean().default(false),
+  customer_vat_number: z.string().optional(),
+  customer_phone: z.string().min(9),
+  customer_email: z.string().email(),
+  contact_name: z.string().optional(),
+  contact_phone: z.string().optional(),
+  contact_email: z.string().email().optional(),
+  address_type: z.enum(["existing", "construction"]),
+  address_street: z.string(),
+  address_state: z.string(),
+  address_city: z.string(),
+  address_zip: z.string(),
+  address_country: z.string().default("CZ"),
+  address_note: z.string().optional(),
+  date: z
+    .union([z.string(), z.date()])
+    .transform((val) =>
+      val instanceof Date ? val.toISOString().split("T")[0] : val
+    ),
+  time: z
+    .union([
+      z.string(),
+      z.object({
+        hours: z.number(),
+        minutes: z.number(),
+        seconds: z.number().optional(),
+      }),
+    ])
+    .transform((val) => (typeof val === "object" ? formatTime(val) : val)),
+  config: z.object({
+    type: z.enum(["vlastni", "betonTeplice", "betonMimo"]),
+    thickness: z.number().min(8).max(16).optional(),
+    quality: z.string(),
+    height: z.number().optional(),
+    hose_length: z.number().max(100),
+    volume_height: z.number().max(10),
+    description: z.string().max(100).optional(),
+  }),
+});
 
-const druhyAdresy = [
+type OrderForm = z.infer<typeof orderSchema>;
+
+// Form state
+const form = ref<OrderForm>({
+  customer_type: "fyzicka",
+  customer_name: "",
+  customer_vat: false,
+  customer_phone: "",
+  customer_email: "",
+  address_type: "existing",
+  address_street: "",
+  address_state: "",
+  address_city: "",
+  address_zip: "",
+  address_country: "CZ",
+  date: "",
+  time: "07:00",
+  config: {
+    type: "vlastni",
+    quality: "",
+    hose_length: 0,
+    volume_height: 0,
+  },
+});
+
+// Form validation state
+const errors = ref<Record<string, string>>({});
+
+// Form steps
+const steps = [
+  { id: 1, title: "Rezervace" },
+  { id: 2, title: "Subjekt" },
+  { id: 3, title: "Osoby" },
+  { id: 4, title: "Adresa" },
+  { id: 5, title: "Beton" },
+];
+
+const currentStep = ref(1);
+
+// Options for select fields
+const personTypes = [
+  { value: "fyzicka", label: "Fyzická osoba" },
+  { value: "podnikatel", label: "Fyzická osoba podnikatel" },
+  { value: "pravnicka", label: "Společnost" },
+  { value: "baracnik", label: "Baráčník" },
+];
+
+const addressTypes = [
   { value: "existing", label: "Existující adresa" },
   { value: "construction", label: "Stavba - Pozemek" },
 ];
 
-onMounted(async () => {
-  const loader = new Loader({
-    apiKey: import.meta.env.VITE_GOOGLE_MAPS_KEY,
-    version: "weekly",
-    language: "cs",
-  });
-  const Places = await loader.importLibrary("places");
-  const input = document.getElementById("address-query") as HTMLInputElement;
-
-  console.log("[Google Maps] input", input);
-
-  //this object will be our second arg for the new instance of the Places API
-  const options = {
-    componentRestrictions: { country: "cz" }, // limiter for the places api search
-    fields: ["address_components", "geometry", "icon", "name"], // allows the api to accept these inputs and return similar ones
-    strictBounds: false, // optional
-  };
-
-  // per the Google docs create the new instance of the import above. I named it Places.
-  const autocomplete = new Places.Autocomplete(input, options);
-
-  console.log("[Google Maps] autocomplete", autocomplete); //optional log but will show you the available methods and properties of the new instance of Places.
-
-  //add the place_changed listener to display results when inputs change
-  autocomplete.addListener("place_changed", () => {
-    const place = autocomplete.getPlace(); //this callback is inherent you will see it if you logged autocomplete
-    console.log("[Google Maps] change - place", place);
-    place.address_components.forEach((component: any) => {
-      console.log("[Google Maps] change - component", component);
-      if (component.types.includes("postal_code")) {
-        form.address_zip = component.long_name;
-      } else if (component.types.includes("locality")) {
-        form.address_city = component.long_name;
-      } else if (component.types.includes("administrative_area_level_1")) {
-        form.address_note = component.long_name;
-      }
-    });
-  });
-});
-({
-  // Ares API response example
-  ico: "1234567",
-  obchodniJmeno: "John Dee",
-  sidlo: {
-    kodStatu: "CZ",
-    nazevStatu: "Česká republika",
-    kodKraje: 21,
-    nazevKraje: "Prague",
-    kodOkresu: 1234,
-    nazevOkresu: "Prague",
-    kodObce: 123456,
-    nazevObce: "Prague",
-    kodUlice: 12545,
-    nazevUlice: "Street",
-    cisloDomovni: 123,
-    kodCastiObce: 12345,
-    nazevCastiObce: "Address 2",
-    kodAdresnihoMista: 1234567,
-    psc: 12345,
-    textovaAdresa: "Street 123, City",
-    standardizaceAdresy: true,
-    typCisloDomovni: 1,
-  },
-  pravniForma: "101",
-  financniUrad: "001",
-  datumVzniku: "2023-10-05",
-  datumAktualizace: "2024-10-11",
-  icoId: "17503400",
-  adresaDorucovaci: {
-    radekAdresy1: "Street 123",
-    radekAdresy2: "Address 2",
-    radekAdresy3: "12345 Prague",
-  },
-  primarniZdroj: "rzp",
-});
-
-const typyOsob = [
-  { value: "fyzicka", label: "Fyzická osoba" },
-  { value: "podnikatel", label: "Fyzická osoba podnikatel" },
-  { value: "pravnicka", label: "Společnost" },
-  {
-    value: "baracnik",
-    label: "Baráčník (osoba, která si staví vlastní rodinný dům)",
-  },
-];
-
-const druhyBetonu = [
+const concreteTypes = [
   { value: "vlastni", label: "Vlastní" },
   { value: "betonTeplice", label: "Potřebuji beton dodat - Teplice" },
   { value: "betonMimo", label: "Potřebuji beton dodat - mimo Teplice" },
 ];
 
-const tomorrow = new Date();
-tomorrow.setDate(tomorrow.getDate() + 1);
-form.date = tomorrow.toISOString().split("T")[0];
-form.time = "07:00";
+// ARES API integration
+async function fetchAresData(ico: string) {
+  try {
+    const response = await fetch(`${import.meta.env.VITE_ARES_URL}/${ico}`);
+    const data = (await response.json()) as AresApiResponse;
 
-// const in30Days = new Date()
-// in30Days.setDate(in30Days.getDate() + 30)
+    if (data) {
+      form.value.customer_name = data.obchodniJmeno;
+      form.value.address_street = data.sidlo.textovaAdresa;
+      form.value.address_city = data.sidlo.nazevObce;
+      form.value.address_zip = data.sidlo.psc.toString();
+      form.value.address_state = data.sidlo.nazevKraje;
+    }
+  } catch (error) {
+    console.error("Error fetching ARES data:", error);
+  }
+}
 
-const disabledDates = useAsyncState<string[]>(async () => {
-  await new Promise((resolve) => setTimeout(resolve, 2000)); // Wait for 2 seconds
-  return [
-    "2024-09-29",
-    "2024-10-06",
-    "2024-10-10",
-    "2024-10-13",
-    "2024-10-16",
-    "2024-10-17",
-    "2024-10-18",
-  ];
-}, []);
+// Watch for ICO changes
+watch(
+  () => form.value.customer_cid,
+  (newIco) => {
+    if (newIco && newIco.length === 8) {
+      fetchAresData(newIco);
+    }
+  }
+);
+
+// Date picker configuration
+const disabledDates = ref([
+  new Date("2024-09-29"),
+  new Date("2024-10-06"),
+  new Date("2024-10-10"),
+  new Date("2024-10-13"),
+  new Date("2024-10-16"),
+  new Date("2024-10-17"),
+  new Date("2024-10-18"),
+]);
 
 const markers = computed<DatePickerMarker[]>(() => [
   {
-    date: "2024-09-29",
+    date: new Date("2024-09-29"),
     color: "red",
     type: "line",
     tooltip: [{ text: "Obsazeno" }],
   },
   {
-    date: "2024-10-06",
+    date: new Date("2024-10-06"),
     color: "red",
     type: "line",
     tooltip: [{ text: "Obsazeno" }],
   },
   {
-    date: "2024-10-10",
+    date: new Date("2024-10-10"),
     color: "red",
     type: "line",
     tooltip: [{ text: "Obsazeno" }],
   },
   {
-    date: "2024-10-13",
+    date: new Date("2024-10-13"),
     color: "red",
     type: "line",
     tooltip: [{ text: "Obsazeno" }],
   },
   {
-    date: "2024-10-16",
+    date: new Date("2024-10-16"),
     color: "red",
     type: "line",
     tooltip: [{ text: "Obsazeno" }],
   },
   {
-    date: "2024-10-17",
+    date: new Date("2024-10-17"),
     color: "red",
     type: "line",
     tooltip: [{ text: "Obsazeno" }],
   },
   {
-    date: "2024-10-18",
+    date: new Date("2024-10-18"),
     color: "red",
     type: "line",
     tooltip: [{ text: "Obsazeno" }],
   },
 ]);
 
-const
-    contactSameAsResponsible = ref<boolean>(true),
-    confirmation = ref<boolean>(false),
-    remember = ref<boolean>(false),
-    addressQuery = ref<string>("");
+// Initialize tomorrow's date
+const tomorrow = new Date();
+tomorrow.setDate(tomorrow.getDate() + 1);
+form.value.date = tomorrow.toISOString().split("T")[0];
 
-watchDebounced(
-  () => form,
-  async () => {
-    if (form.customer_cid) {
-      const { pravniForma, sidlo, obchodniJmeno } = await ares(
-        form.customer_cid
-      );
-
-      const psc = sidlo.psc.toString();
-
-      // https://www.cnb.cz/export/sites/cnb/cs/statistika/.galleries/predpisy_CNB_statistika/predpisy_menove_bank_stat/vykazy_metodika_2011/cast_V/download/5_BA0062_1101.pdf
-      if (Number(pravniForma) > 100 && Number(pravniForma) < 108) {
-        form.customer_type = "podnikatel";
-        form.contact_name = obchodniJmeno;
-      } else {
-        form.customer_type = "pravnicka";
-      }
-
-      form.address_street = sidlo.textovaAdresa;
-      form.address_city = sidlo.nazevObce;
-      form.address_zip = `${psc.slice(0, 3)} ${psc.slice(3)}`;
-      form.customer_name = obchodniJmeno;
+// Form navigation
+const nextStep = async () => {
+  try {
+    // Validate current step
+    const validationResult = await validateCurrentStep();
+    if (validationResult && currentStep.value < steps.length) {
+      currentStep.value++;
     }
-  },
-  {
-    deep: true,
-    debounce: 2500,
+  } catch (error) {
+    console.error("Validation error:", error);
   }
-);
-
-const nextStep = () => {
-  if (step.value < 4) step.value++;
 };
 
 const prevStep = () => {
-  if (step.value > 1) step.value--;
+  if (currentStep.value > 1) {
+    currentStep.value--;
+  }
 };
 
-const corsHeaders = {
-  // "Access-Control-Allow-Origin": "*",
-  // "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  // "Access-Control-Allow-Headers":
-  //   "Content-Type, Authorization, Content-Length, X-Requested-With",
-  "Content-Type": "application/json",
-};
+// Add this to your script section
+const addressQuery = ref("");
+const remember = ref(false);
 
-// fetch orders
-const orders = await fetch(`${import.meta.env.VITE_API_URL}/orders`);
-console.log(orders);
-
-const onSubmit = async (formData, node) => {
+// Add validation for steps 4 and 5 in validateCurrentStep
+const validateCurrentStep = async () => {
   try {
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/orders`, {
+    switch (currentStep.value) {
+      case 1:
+        await orderSchema
+          .pick({ date: true, time: true })
+          .parseAsync(form.value);
+        break;
+      case 2:
+        await orderSchema
+          .pick({
+            customer_type: true,
+            customer_name: true,
+            customer_cid: true,
+            customer_vat: true,
+            customer_vat_number: true,
+          })
+          .parseAsync(form.value);
+        break;
+      case 3:
+        // Validate required fields
+        const validationFields = {
+          customer_name: true,
+          customer_phone: true,
+          customer_email: true,
+        };
+
+        // Add contact person fields if not same as responsible
+        if (!contactSameAsResponsible.value) {
+          Object.assign(validationFields, {
+            contact_name: true,
+            contact_phone: true,
+            contact_email: true,
+          });
+        }
+
+        // Validate the fields
+        await orderSchema.pick(validationFields).parseAsync(form.value);
+
+        // Validate confirmation checkbox
+        if (!confirmation.value) {
+          throw new z.ZodError([
+            {
+              code: "custom",
+              path: ["confirmation"],
+              message: "Musíte potvrdit oprávnění jednat jménem subjektu",
+            },
+          ]);
+        }
+        break;
+      case 4:
+        await orderSchema
+          .pick({
+            address_type: true,
+            address_street: true,
+            address_state: true,
+            address_city: true,
+            address_zip: true,
+            address_note: true,
+          })
+          .parseAsync(form.value);
+        break;
+      case 5:
+        await orderSchema
+          .pick({
+            config: true,
+          })
+          .parseAsync(form.value);
+        break;
+    }
+    return true;
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      errors.value = error.errors.reduce((acc, curr) => {
+        acc[curr.path.join(".")] = curr.message;
+        return acc;
+      }, {} as Record<string, string>);
+    }
+    return false;
+  }
+};
+
+// Add this helper function after the imports
+function formatTime(timeObj: {
+  hours: number;
+  minutes: number;
+  seconds?: number;
+}) {
+  const hours = String(timeObj.hours).padStart(2, "0");
+  const minutes = String(timeObj.minutes).padStart(2, "0");
+  return `${hours}:${minutes}:00`;
+}
+
+// Update the onSubmit function
+const onSubmit = async () => {
+  try {
+    const formData = { ...form.value };
+
+    // Format time before submission
+    if (typeof formData.time === "object") {
+      formData.time = formatTime(formData.time);
+    }
+
+    // Format date if needed
+    if (formData.date instanceof Date) {
+      formData.date = formData.date.toISOString().split("T")[0];
+    }
+
+    const validatedData = await orderSchema.parseAsync(formData);
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/orders`, {
       method: "POST",
-      mode: "no-cors",
-      headers: corsHeaders,
-      body: JSON.stringify(form),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(validatedData),
     });
 
-    if (!res.ok) {
+    if (!response.ok) {
       throw new Error("Failed to submit order");
     }
 
-    const data = await res.json();
-    console.log("Order submitted:", data);
+    const result = await response.json();
+    console.log("Order submitted successfully:", result);
     // Show success message or redirect
   } catch (error) {
     console.error("Error submitting order:", error);
     // Show error message
   }
 };
+
+// Initialize Google Maps Places Autocomplete
+onMounted(async () => {
+  const loader = new Loader({
+    apiKey: import.meta.env.VITE_GOOGLE_MAPS_KEY,
+    version: "weekly",
+    language: "cs",
+  });
+
+  const Places = await loader.importLibrary("places");
+  const input = document.getElementById("address-query") as HTMLInputElement;
+
+  if (input) {
+    const autocomplete = new Places.Autocomplete(input, {
+      componentRestrictions: { country: "cz" },
+      fields: ["address_components", "geometry", "icon", "name"],
+      strictBounds: false,
+    });
+
+    autocomplete.addListener("place_changed", () => {
+      const place = autocomplete.getPlace();
+      if (place.address_components) {
+        place.address_components.forEach((component: any) => {
+          if (component.types.includes("postal_code")) {
+            form.value.address_zip = component.long_name;
+          } else if (component.types.includes("locality")) {
+            form.value.address_city = component.long_name;
+          } else if (component.types.includes("administrative_area_level_1")) {
+            form.value.address_state = component.long_name;
+          }
+        });
+      }
+    });
+  }
+});
+
+// Add these refs to your script section after the form ref
+const contactSameAsResponsible = ref(true);
+const confirmation = ref(false);
 </script>
+
 <template>
-  <div class="flex flex-row justify-center bg-zinc-700 min-h-screen dark">
-    <div id="poptavka" class="mx-auto my-12 w-full max-w-xl">
-      <FormKit
-        type="form"
-        @submit="onSubmit"
-        :value="form"
-        submitLabel="Odeslat poptávku"
-      >
-        <FormKit :type="('multi-step' as any)" tab-style="progress">
-          <FormKit
-            :type="('step' as any)"
-            name="reservation"
-            label="Rezervace"
-            nextLabel="Pokračovat"
-          >
-            <label
-              for="date"
-              class="block mb-2.5 font-medium text-gray-700 text-lg dark:text-gray-300"
-              >Datum&nbsp;rezervace</label
+  <div class="flex flex-col min-h-screen bg-zinc-700">
+    <div class="container mx-auto px-4 py-8 max-w-2xl">
+      <!-- Progress bar -->
+      <div class="mb-8">
+        <div class="flex justify-between mb-2">
+          <div v-for="step in steps" :key="step.id" class="flex items-center">
+            <div
+              :class="[
+                'w-8 h-8 rounded-full flex items-center justify-center',
+                currentStep >= step.id
+                  ? 'bg-yellow-600 text-white'
+                  : 'bg-zinc-500 text-zinc-300',
+              ]"
             >
+              {{ step.id }}
+            </div>
+            <div
+              v-if="step.id < steps.length"
+              :class="[
+                'h-1 w-16',
+                currentStep > step.id ? 'bg-yellow-600' : 'bg-zinc-500',
+              ]"
+            ></div>
+          </div>
+        </div>
+        <div class="flex justify-between text-sm text-zinc-300">
+          <span v-for="step in steps" :key="step.id">{{ step.title }}</span>
+        </div>
+      </div>
+
+      <!-- Form content -->
+      <form @submit.prevent="onSubmit" class="space-y-6">
+        <!-- Step 1: Reservation -->
+        <div v-if="currentStep === 1">
+          <h2 class="text-2xl font-bold text-zinc-100 mb-6">Rezervace</h2>
+
+          <div class="mb-6">
+            <label class="block text-zinc-300 text-sm font-bold mb-2">
+              Datum rezervace
+            </label>
             <DatePicker
-              id="date"
               v-model="form.date"
               dark
               inline
               :enableTimePicker="false"
-              :minDate="tomorrow"
-              :disabledDates="disabledDates.state.value"
-              :disabledWeekDays="[0, 6]"
+              :disabled-dates="disabledDates"
+              :disabled-weekdays="[0, 6]"
               :markers="markers"
-              class="mx-auto mb-5"
+              :min-date="tomorrow"
+              class="w-full"
               required
               locale="cs"
-              autoApply
-              :loading="disabledDates.isLoading.value"
-              preventMinMaxNavigation
-              disableYearSelect
+              auto-apply
             />
-            <label
-              for="time"
-              class="block mb-2.5 font-medium text-gray-700 text-lg dark:text-gray-300"
-              >Čas příjezdu (v kolik máme přijet)</label
-            >
+            <span v-if="errors.date" class="text-red-500 text-sm">
+              {{ errors.date }}
+            </span>
+          </div>
+
+          <div class="mb-6">
+            <label class="block text-zinc-300 text-sm font-bold mb-2">
+              Čas příjezdu
+            </label>
             <DatePicker
-              id="time"
               v-model="form.time"
-              inline
-              timePicker
               dark
+              timePicker
               :minTime="{ hours: 6, minutes: 0 }"
               :maxTime="{ hours: 14, minutes: 15 }"
+              class="w-full"
               required
-              class="mx-auto mb-5"
-              autoApply
               :minutesIncrement="15"
-              :minutesGridIncrement="15"
-              preventMinMaxNavigation
             />
-            <p class="text-gray-400 text-sm">
-              Rezervace je možná pouze od 7:00 do 14:00
-            </p>
-          </FormKit>
-          <FormKit
-            :type="('step' as any)"
-            label="Subjekt"
-            previousLabel="Zpět"
-            nextLabel="Pokračovat"
-          >
-            <FormKit
-              type="select"
-              name="customer_type"
-              v-model="form.customer_type"
-              label="Typ osoby"
-              :options="typyOsob"
-              required
-            />
-            <FormKit
-              v-if="['podnikatel', 'pravnicka'].includes(form.customer_type)"
-              type="text"
-              label="IČO"
-              name="ico"
-              min="8"
-              max="8"
-              validation="required|number"
-            />
-            <FormKit
-              v-if="form.customer_type !== 'baracnik'"
-              type="checkbox"
-              label="Plátce DPH"
-              field="customer_vat"
-              v-model="form.customer_vat"
-            />
-            <FormKit
-              v-if="form.customer_type !== 'baracnik' && form.customer_vat"
-              type="text"
-              label="DIČ"
-              name="dic"
-              min="8"
-              max="12"
-            />
-            <FormKit
-              type="text"
-              name="jmeno"
-              v-model="form.customer_name"
-              :label="
-                form.customer_type === 'pravnicka'
-                  ? 'Obchodní Jméno'
-                  : 'Jméno a Příjmení'
-              "
-              min="3"
-              max="200"
-              required
-            />
-          </FormKit>
-          <FormKit
-            :type="('step' as any)"
-            name="persons"
-            label="Osoby"
-            previousLabel="Zpět"
-            nextLabel="Pokračovat"
-          >
-            <label class="font-semibold text-zinc-200">Odpovědná osoba</label>
-            <FormKit type="text" label="Jméno" name="customer_name" />
-            <FormKit type="text" label="Telefon" name="customer_phone" />
-            <FormKit type="email" label="Email" name="customer_email" />
-            <FormKit
-              type="checkbox"
-              label="Kontaktní osoba je stejná jako odpovědná"
-              v-model="contactSameAsResponsible"
-            />
-            <FormKit
-              type="checkbox"
-              checked
-              label="Potvrzuji, že jsem oprávněn jednat jménem subjektu"
-              v-model="confirmation"
-            />
-            <div :class="{ 'hidden': contactSameAsResponsible }">
-              <label class="font-semibold text-zinc-200">Kontaktní osoba</label>
-              <FormKit type="text" label="Jméno" name="contact_name" />
-              <FormKit type="text" label="Telefon" name="contact_phone" />
-              <FormKit type="email" label="Email" name="contact_email" />
-            </div>
-          </FormKit>
-          <FormKit
-            :type="('step' as any)"
-            label="Adresa"
-            previousLabel="Zpět"
-            nextLabel="Pokračovat"
-          >
-            <FormKit
-              type="radio"
-              label="Místo přistavění pumpy"
-              name="address_type"
-              v-model="form.address_type"
-              :options="druhyAdresy"
-              validation="required"
-            />
-            <FormKit
-              id="address-query"
-              v-if="form.address_type === 'existing'"
-              type="search"
-              label="Adresa"
-              placeholder="Vyhledat adresu..."
-              v-model="addressQuery"
-            />
-            <FormKit
-              v-else-if="form.address_type === 'construction'"
-              type="text"
-              help="Nejbližší existující adresa"
-              name="address_note"
-              placeholder="Číslo pozemku"
-              validation="required"
-            />
-            <FormKit
-              type="text"
-              :value="form.address_zip"
-              name="address_zip"
-              label="PSČ"
-              placeholder="123 00"
-              validation="required"
-            />
-            <FormKit
-              type="text"
-              :value="form.address_state"
-              name="address_state"
-              label="Kraj"
-              placeholder="Středočeský"
-              validation="required"
-            />
-            <FormKit
-              type="text"
-              :value="form.address_city"
-              label="Město"
-              placeholder="Město"
-              name="address_city"
-              validation="required"
-            />
-            <FormKit
-              type="textarea"
-              label="Poznámka"
-              name="address_note"
-              placeholder="Poznámka k adrese"
-              max=""
-            />
-          </FormKit>
-          <FormKit
-            :type="('step' as any)"
-            label="Beton"
-            previousLabel="Zpět"
-          >
-              <FormKit
-                type="select"
-                label="Beton"
-                name="config.type"
-                :options="druhyBetonu"
-                validation="required"
-              />
-              <FormKit
-                type="text"
-                label="Kvalita/Typ"
-                name="config.quality"
-                validation="required"
-                :validation-messages="{
-                  required: 'Toto pole je povinné',
-                }"
-                placeholder="Zadejte kvalitu/typ betonu"
-              />
-              <FormKit
-                type="select"
-                label="Tloušťka kameniva (max. 16mm)"
-                name="config.thickness"
-                :options="[
-                  { value: 8, label: '4/8' },
-                  { value: 16, label: '8/16' },
-                ]"
-              />
-              <FormKit
-                type="number"
-                label="Délka hadic"
-                name="config.hose_length"
-                placeholder="bm"
-                validation="required|number"
-                max="100"
-                help="Max. 100m, více pouze po dohodě"
-              />
-              <FormKit
-                type="number"
-                label="Do jaké výšky budeme beton čerpat"
-                name="config.volume_height"
-                placeholder="m"
-                validation="required|number|max:10"
-                max="10"
-              />
-              <FormKit
-                type="textarea"
-                label="Stručný popis práce"
-                name="config.description"
-                placeholder="Co se bude dělat (max 100 znaků)"
-                max="100"
-              />
+            <span v-if="errors.time" class="text-red-500 text-sm">
+              {{ errors.time }}
+            </span>
+          </div>
+        </div>
 
-              <FormKit
+        <!-- Step 2: Subject -->
+        <div v-if="currentStep === 2">
+          <h2 class="text-2xl font-bold text-zinc-100 mb-6">Subjekt</h2>
+
+          <div class="mb-6">
+            <label class="block text-zinc-300 text-sm font-bold mb-2">
+              Typ osoby
+            </label>
+            <select
+              v-model="form.customer_type"
+              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+            >
+              <option
+                v-for="type in personTypes"
+                :key="type.value"
+                :value="type.value"
+              >
+                {{ type.label }}
+              </option>
+            </select>
+            <span v-if="errors.customer_type" class="text-red-500 text-sm">
+              {{ errors.customer_type }}
+            </span>
+          </div>
+
+          <div
+            v-if="['podnikatel', 'pravnicka'].includes(form.customer_type)"
+            class="mb-6"
+          >
+            <label class="block text-zinc-300 text-sm font-bold mb-2">
+              IČO
+            </label>
+            <input
+              v-model="form.customer_cid"
+              type="text"
+              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+              maxlength="8"
+              placeholder="12345678"
+            />
+            <span v-if="errors.customer_cid" class="text-red-500 text-sm">
+              {{ errors.customer_cid }}
+            </span>
+          </div>
+
+          <div v-if="form.customer_type !== 'baracnik'" class="mb-6">
+            <label class="block text-zinc-300 text-sm font-bold mb-2">
+              <input
                 type="checkbox"
-                label="Zapamatovat pro příště"
-                v-model="remember"
+                v-model="form.customer_vat"
+                class="mr-2 rounded bg-zinc-600 text-yellow-600 focus:ring-yellow-500"
               />
-          </FormKit>
-        </FormKit>
-      </FormKit>
+              Plátce DPH
+            </label>
+          </div>
+
+          <div
+            v-if="form.customer_type !== 'baracnik' && form.customer_vat"
+            class="mb-6"
+          >
+            <label class="block text-zinc-300 text-sm font-bold mb-2">
+              DIČ
+            </label>
+            <input
+              v-model="form.customer_vat_number"
+              type="text"
+              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+              minlength="8"
+              maxlength="12"
+              placeholder="CZ12345678"
+            />
+            <span
+              v-if="errors.customer_vat_number"
+              class="text-red-500 text-sm"
+            >
+              {{ errors.customer_vat_number }}
+            </span>
+          </div>
+
+          <div class="mb-6">
+            <label class="block text-zinc-300 text-sm font-bold mb-2">
+              {{
+                form.customer_type === "pravnicka"
+                  ? "Obchodní Jméno"
+                  : "Jméno a Příjmení"
+              }}
+            </label>
+            <input
+              v-model="form.customer_name"
+              type="text"
+              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+              minlength="3"
+              maxlength="200"
+              required
+              :placeholder="
+                form.customer_type === 'pravnicka'
+                  ? 'Název společnosti'
+                  : 'Jan Novák'
+              "
+            />
+            <span v-if="errors.customer_name" class="text-red-500 text-sm">
+              {{ errors.customer_name }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Step 3: Persons -->
+        <div v-if="currentStep === 3">
+          <h2 class="text-2xl font-bold text-zinc-100 mb-6">Osoby</h2>
+
+          <!-- Responsible Person -->
+          <div class="mb-8">
+            <h3 class="font-semibold text-zinc-200 mb-4">Odpovědná osoba</h3>
+
+            <div class="space-y-4">
+              <div>
+                <label class="block text-zinc-300 text-sm font-bold mb-2">
+                  Jméno
+                </label>
+                <input
+                  v-model="form.customer_name"
+                  type="text"
+                  class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+                  required
+                />
+                <span v-if="errors.customer_name" class="text-red-500 text-sm">
+                  {{ errors.customer_name }}
+                </span>
+              </div>
+
+              <div>
+                <label class="block text-zinc-300 text-sm font-bold mb-2">
+                  Telefon
+                </label>
+                <input
+                  v-model="form.customer_phone"
+                  type="tel"
+                  class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+                  required
+                  placeholder="+420 123 456 789"
+                />
+                <span v-if="errors.customer_phone" class="text-red-500 text-sm">
+                  {{ errors.customer_phone }}
+                </span>
+              </div>
+
+              <div>
+                <label class="block text-zinc-300 text-sm font-bold mb-2">
+                  Email
+                </label>
+                <input
+                  v-model="form.customer_email"
+                  type="email"
+                  class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+                  required
+                  placeholder="email@example.com"
+                />
+                <span v-if="errors.customer_email" class="text-red-500 text-sm">
+                  {{ errors.customer_email }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Checkboxes -->
+          <div class="space-y-4 mb-8">
+            <label class="flex items-center text-zinc-300">
+              <input
+                type="checkbox"
+                v-model="contactSameAsResponsible"
+                class="mr-2 rounded bg-zinc-600 text-yellow-600 focus:ring-yellow-500"
+              />
+              <span>Kontaktní osoba je stejná jako odpovědná</span>
+            </label>
+
+            <label class="flex items-center text-zinc-300">
+              <input
+                type="checkbox"
+                v-model="confirmation"
+                class="mr-2 rounded bg-zinc-600 text-yellow-600 focus:ring-yellow-500"
+              />
+              <span>Potvrzuji, že jsem oprávněn jednat jménem subjektu</span>
+            </label>
+          </div>
+
+          <!-- Contact Person -->
+          <div v-show="!contactSameAsResponsible" class="mb-6">
+            <h3 class="font-semibold text-zinc-200 mb-4">Kontaktní osoba</h3>
+
+            <div class="space-y-4">
+              <div>
+                <label class="block text-zinc-300 text-sm font-bold mb-2">
+                  Jméno
+                </label>
+                <input
+                  v-model="form.contact_name"
+                  type="text"
+                  class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+                  :required="!contactSameAsResponsible"
+                />
+                <span v-if="errors.contact_name" class="text-red-500 text-sm">
+                  {{ errors.contact_name }}
+                </span>
+              </div>
+
+              <div>
+                <label class="block text-zinc-300 text-sm font-bold mb-2">
+                  Telefon
+                </label>
+                <input
+                  v-model="form.contact_phone"
+                  type="tel"
+                  class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+                  :required="!contactSameAsResponsible"
+                  placeholder="+420 123 456 789"
+                />
+                <span v-if="errors.contact_phone" class="text-red-500 text-sm">
+                  {{ errors.contact_phone }}
+                </span>
+              </div>
+
+              <div>
+                <label class="block text-zinc-300 text-sm font-bold mb-2">
+                  Email
+                </label>
+                <input
+                  v-model="form.contact_email"
+                  type="email"
+                  class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+                  :required="!contactSameAsResponsible"
+                  placeholder="email@example.com"
+                />
+                <span v-if="errors.contact_email" class="text-red-500 text-sm">
+                  {{ errors.contact_email }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 4: Address -->
+        <div v-if="currentStep === 4">
+          <h2 class="text-2xl font-bold text-zinc-100 mb-6">Adresa</h2>
+
+          <div class="mb-6">
+            <label class="block text-zinc-300 text-sm font-bold mb-2">
+              Místo přistavění pumpy
+            </label>
+            <div class="space-y-2">
+              <label
+                v-for="type in addressTypes"
+                :key="type.value"
+                class="flex items-center text-zinc-300"
+              >
+                <input
+                  type="radio"
+                  v-model="form.address_type"
+                  :value="type.value"
+                  class="mr-2 rounded-full bg-zinc-600 text-yellow-600 focus:ring-yellow-500"
+                />
+                <span>{{ type.label }}</span>
+              </label>
+            </div>
+            <span v-if="errors.address_type" class="text-red-500 text-sm">
+              {{ errors.address_type }}
+            </span>
+          </div>
+
+          <div v-if="form.address_type === 'existing'" class="mb-6">
+            <label class="block text-zinc-300 text-sm font-bold mb-2">
+              Adresa
+            </label>
+            <input
+              id="address-query"
+              v-model="addressQuery"
+              type="search"
+              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+              placeholder="Vyhledat adresu..."
+            />
+          </div>
+
+          <div v-else-if="form.address_type === 'construction'" class="mb-6">
+            <label class="block text-zinc-300 text-sm font-bold mb-2">
+              Číslo pozemku
+            </label>
+            <input
+              v-model="form.address_note"
+              type="text"
+              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+              placeholder="Číslo pozemku"
+              required
+            />
+            <span v-if="errors.address_note" class="text-red-500 text-sm">
+              {{ errors.address_note }}
+            </span>
+            <p class="mt-1 text-sm text-zinc-400">
+              Nejbližší existující adresa
+            </p>
+          </div>
+
+          <div class="mb-6">
+            <label class="block text-zinc-300 text-sm font-bold mb-2">
+              PSČ
+            </label>
+            <input
+              v-model="form.address_zip"
+              type="text"
+              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+              placeholder="123 00"
+              required
+            />
+            <span v-if="errors.address_zip" class="text-red-500 text-sm">
+              {{ errors.address_zip }}
+            </span>
+          </div>
+
+          <div class="mb-6">
+            <label class="block text-zinc-300 text-sm font-bold mb-2">
+              Kraj
+            </label>
+            <input
+              v-model="form.address_state"
+              type="text"
+              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+              placeholder="Středočeský"
+              required
+            />
+            <span v-if="errors.address_state" class="text-red-500 text-sm">
+              {{ errors.address_state }}
+            </span>
+          </div>
+
+          <div class="mb-6">
+            <label class="block text-zinc-300 text-sm font-bold mb-2">
+              Město
+            </label>
+            <input
+              v-model="form.address_city"
+              type="text"
+              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+              placeholder="Město"
+              required
+            />
+            <span v-if="errors.address_city" class="text-red-500 text-sm">
+              {{ errors.address_city }}
+            </span>
+          </div>
+
+          <div class="mb-6">
+            <label class="block text-zinc-300 text-sm font-bold mb-2">
+              Poznámka
+            </label>
+            <textarea
+              v-model="form.address_note"
+              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+              placeholder="Poznámka k adrese"
+              rows="3"
+            ></textarea>
+            <span v-if="errors.address_note" class="text-red-500 text-sm">
+              {{ errors.address_note }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Step 5: Concrete -->
+        <div v-if="currentStep === 5">
+          <h2 class="text-2xl font-bold text-zinc-100 mb-6">Beton</h2>
+
+          <div class="mb-6">
+            <label class="block text-zinc-300 text-sm font-bold mb-2">
+              Beton
+            </label>
+            <select
+              v-model="form.config.type"
+              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+              required
+            >
+              <option
+                v-for="type in concreteTypes"
+                :key="type.value"
+                :value="type.value"
+              >
+                {{ type.label }}
+              </option>
+            </select>
+            <span v-if="errors['config.type']" class="text-red-500 text-sm">
+              {{ errors["config.type"] }}
+            </span>
+          </div>
+
+          <div class="mb-6">
+            <label class="block text-zinc-300 text-sm font-bold mb-2">
+              Kvalita/Typ
+            </label>
+            <input
+              v-model="form.config.quality"
+              type="text"
+              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+              placeholder="Zadejte kvalitu/typ betonu"
+              required
+            />
+            <span v-if="errors['config.quality']" class="text-red-500 text-sm">
+              {{ errors["config.quality"] }}
+            </span>
+          </div>
+
+          <div class="mb-6">
+            <label class="block text-zinc-300 text-sm font-bold mb-2">
+              Tloušťka kameniva (max. 16mm)
+            </label>
+            <select
+              v-model="form.config.thickness"
+              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+            >
+              <option :value="8">4/8</option>
+              <option :value="16">8/16</option>
+            </select>
+            <span
+              v-if="errors['config.thickness']"
+              class="text-red-500 text-sm"
+            >
+              {{ errors["config.thickness"] }}
+            </span>
+          </div>
+
+          <div class="mb-6">
+            <label class="block text-zinc-300 text-sm font-bold mb-2">
+              Délka hadic
+            </label>
+            <input
+              v-model.number="form.config.hose_length"
+              type="number"
+              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+              placeholder="bm"
+              max="100"
+              required
+            />
+            <span
+              v-if="errors['config.hose_length']"
+              class="text-red-500 text-sm"
+            >
+              {{ errors["config.hose_length"] }}
+            </span>
+            <p class="mt-1 text-sm text-zinc-400">
+              Max. 100m, více pouze po dohodě
+            </p>
+          </div>
+
+          <div class="mb-6">
+            <label class="block text-zinc-300 text-sm font-bold mb-2">
+              Do jaké výšky budeme beton čerpat
+            </label>
+            <input
+              v-model.number="form.config.volume_height"
+              type="number"
+              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+              placeholder="m"
+              max="10"
+              required
+            />
+            <span
+              v-if="errors['config.volume_height']"
+              class="text-red-500 text-sm"
+            >
+              {{ errors["config.volume_height"] }}
+            </span>
+          </div>
+
+          <div class="mb-6">
+            <label class="block text-zinc-300 text-sm font-bold mb-2">
+              Stručný popis práce
+            </label>
+            <textarea
+              v-model="form.config.description"
+              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+              placeholder="Co se bude dělat (max 100 znaků)"
+              maxlength="100"
+              rows="3"
+            ></textarea>
+            <span
+              v-if="errors['config.description']"
+              class="text-red-500 text-sm"
+            >
+              {{ errors["config.description"] }}
+            </span>
+          </div>
+
+          <div class="mb-6">
+            <label class="flex items-center text-zinc-300">
+              <input
+                type="checkbox"
+                v-model="remember"
+                class="mr-2 rounded bg-zinc-600 text-yellow-600 focus:ring-yellow-500"
+              />
+              <span>Zapamatovat pro příště</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Navigation buttons -->
+        <div class="flex justify-between mt-8">
+          <button
+            v-if="currentStep > 1"
+            @click="prevStep"
+            type="button"
+            class="px-6 py-2 bg-zinc-600 text-zinc-100 rounded-lg hover:bg-zinc-500"
+          >
+            Zpět
+          </button>
+          <button
+            v-if="currentStep < steps.length"
+            @click="nextStep"
+            type="button"
+            class="px-6 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-500"
+          >
+            Další
+          </button>
+          <button
+            v-if="currentStep === steps.length"
+            type="submit"
+            class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-500"
+          >
+            Odeslat
+          </button>
+        </div>
+      </form>
     </div>
   </div>
-  <p class="m-5 font-semibold text-green-400 text-lg">
-    Vaše poptávka byla úspěšně odeslána. Děkujeme.
-  </p>
 </template>
 
 <style>

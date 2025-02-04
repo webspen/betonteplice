@@ -1,45 +1,72 @@
 import { neon } from '@neondatabase/serverless';
-import type { APIGatewayProxyHandlerV2 } from 'aws-lambda';
 
 export async function handler(event: any) {
     try {
         const sql = neon(process.env.NEON_DB_URL!);
-        const body = JSON.parse(event.body);
-
-        const { subject, persons, address, configuration } = body;
+        const form = JSON.parse(event.body);
 
         const query = `
       INSERT INTO orders (
-        subject_type, ico, company_name, contact_name, 
-        phone, email, address_type, postal_code,
-        region, city, address_note, stone_thickness,
-        height, concrete_type, quality_type, hose_length,
-        pump_with_operator, configuration_note
+        customer_type,
+        customer_cid,
+        customer_name,
+        customer_vat,
+        customer_vat_number,
+        customer_phone,
+        customer_email,
+        contact_name,
+        contact_phone,
+        contact_email,
+        address_type,
+        address_street,
+        address_state,
+        address_city,
+        address_zip,
+        address_country,
+        address_note,
+        date,
+        time,
+        config_type,
+        config_thickness,
+        config_quality,
+        config_height,
+        config_hose_length,
+        config_volume_height,
+        config_description
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9,
-        $10, $11, $12, $13, $14, $15, $16, $17, $18
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+        $11, $12, $13, $14, $15, $16, $17, $18, $19,
+        $20, $21, $22, $23, $24, $25, $26
       ) RETURNING id;
     `;
 
         const result = await sql(query, [
-            subject.typOsoby,
-            subject.ico,
-            subject.jmeno,
-            persons.jmeno,
-            persons.telefon,
-            persons.email,
-            address.typAdresy,
-            address.psc,
-            address.kraj,
-            address.mesto,
-            address.poznamka,
-            configuration.configuration.tloustkaKameniva,
-            configuration.configuration.vyska,
-            configuration.configuration.druhBetonu,
-            configuration.configuration.kvalitaTyp,
-            configuration.configuration.delkaHadic,
-            configuration.configuration.checkbox_8,
-            configuration.configuration.poznamka
+            form.customer_type,
+            form.customer_cid,
+            form.customer_name,
+            form.customer_vat,
+            form.customer_vat_number,
+            form.customer_phone,
+            form.customer_email,
+            form.contact_name,
+            form.contact_phone,
+            form.contact_email,
+            form.address_type,
+            form.address_street,
+            form.address_state,
+            form.address_city,
+            form.address_zip,
+            form.address_country,
+            form.address_note,
+            form.date,
+            form.time,
+            form.config.type,
+            form.config.thickness,
+            form.config.quality,
+            form.config.height,
+            form.config.hose_length,
+            form.config.volume_height,
+            form.config.description
         ]);
 
         return {
@@ -54,7 +81,10 @@ export async function handler(event: any) {
         console.error('Error creating order:', error);
         return {
             statusCode: 500,
-            body: JSON.stringify({ message: 'Error creating order' })
+            body: JSON.stringify({
+                message: 'Error creating order',
+                error: error instanceof Error ? error.message : 'Unknown error'
+            })
         };
     }
 } 
