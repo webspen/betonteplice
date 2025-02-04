@@ -206,7 +206,7 @@ export async function handler(event: any) {
         const sql = neon(process.env.NEON_DB_URL!);
         const { orderId, status } = JSON.parse(event.body);
 
-        if (!['pending', 'accepted', 'rejected'].includes(status)) {
+        if (!['pending', 'accepted', 'rejected', 'cancelled'].includes(status)) {
             return {
                 statusCode: 400,
                 body: JSON.stringify({ message: 'Invalid status' })

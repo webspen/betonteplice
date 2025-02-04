@@ -11,7 +11,7 @@ import "@formkit/addons/css/multistep"
 import "@/assets/style.css"
 
 const app = createApp(App)
-app.use(createRouter({
+const router = createRouter({
     history: createWebHistory(),
     routes: [
         {
@@ -31,7 +31,24 @@ app.use(createRouter({
             component: () => import("./Privacy.vue"),
         },
     ]
-}))
+})
+
+// Add navigation guard for admin route
+router.beforeEach((to, from, next) => {
+    if (to.path === '/admin') {
+        const isAuthenticated = localStorage.getItem('adminAuthenticated') === 'true'
+        if (!isAuthenticated && to.path === '/admin') {
+            // Allow access to login page
+            next()
+        } else {
+            next()
+        }
+    } else {
+        next()
+    }
+})
+
+app.use(router)
 app.use(createHead())
 app.use(plugin, defaultConfig({
     config: {
