@@ -1,13 +1,14 @@
 <script setup lang="ts">
+import type { DatePickerMarker } from "@vuepic/vue-datepicker";
+import { Loader } from "@googlemaps/js-api-loader";
+import DatePicker from "@vuepic/vue-datepicker";
 import type { AresApiResponse } from "../types";
 import { onMounted, computed, ref, watch } from "vue";
 import { watchDebounced } from "@vueuse/core";
 import { z } from "zod";
-import { Loader } from "@googlemaps/js-api-loader";
 import { useAsyncState } from "@vueuse/core";
-import type { DatePickerMarker } from "@vuepic/vue-datepicker";
-import DatePicker from "@vuepic/vue-datepicker";
 import "@vuepic/vue-datepicker/dist/main.css";
+import { form } from "./state";
 
 // Validation schema
 const orderSchema = z.object({

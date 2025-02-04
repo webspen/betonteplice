@@ -14,6 +14,7 @@
         "@formkit/icons": "^1.6.7",
         "@formkit/vue": "^1.6.5",
         "@formkit/zod": "^1.6.7",
+        "@googleapis/calendar": "^9.7.9",
         "@googlemaps/js-api-loader": "^1.16.8",
         "@neondatabase/serverless": "^0.10.4",
         "@unhead/vue": "^1.11.6",
