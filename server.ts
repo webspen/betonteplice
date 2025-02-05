@@ -3,6 +3,7 @@ import { serve } from "bun";
 import { handler as updateOrderStatusHandler } from "./src/functions/updateOrderStatus";
 import { handler as createOrderHandler } from "./src/functions/createOrder";
 import { handler as getOrdersHandler } from "./src/functions/getOrders";
+import { handler as getOrderDatesHandler } from "./src/functions/getOrderDate";
 
 const ALLOWED_ORIGIN = "*";
 
@@ -70,6 +71,16 @@ const server = serve({
                     queryStringParameters: Object.fromEntries(url.searchParams),
                     requestContext: {},
                 } as any);
+
+                return new Response(response.body, {
+                    status: response.statusCode,
+                    headers
+                });
+            }
+
+            // Get order dates
+            if (url.pathname === "/api/orders/dates" && req.method === "GET") {
+                const response = await getOrderDatesHandler();
 
                 return new Response(response.body, {
                     status: response.statusCode,

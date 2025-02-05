@@ -141,61 +141,46 @@ watch(
   }
 );
 
-// Date picker configuration
-const disabledDates = ref([
-  new Date("2024-09-29"),
-  new Date("2024-10-06"),
-  new Date("2024-10-10"),
-  new Date("2024-10-13"),
-  new Date("2024-10-16"),
-  new Date("2024-10-17"),
-  new Date("2024-10-18"),
-]);
+// Add this type
+type OrderDate = {
+  date: string;
+  status: "accepted" | "pending";
+};
 
-const markers = computed<DatePickerMarker[]>(() => [
-  {
-    date: new Date("2024-09-29"),
+// Replace the existing disabledDates ref with this
+const { state: disabledDates } = useAsyncState(getOrderDates(), [], {
+  immediate: true,
+});
+
+// Add this function to fetch order dates
+async function getOrderDates(): Promise<Date[]> {
+  try {
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL}/orders/dates`
+    );
+    if (!response.ok) throw new Error("Failed to fetch order dates");
+
+    const orders: OrderDate[] = await response.json();
+
+    // Convert accepted order dates to Date objects
+    return orders
+      .filter((order) => order.status === "accepted")
+      .map((order) => new Date(order.date));
+  } catch (error) {
+    console.error("Error fetching order dates:", error);
+    return [];
+  }
+}
+
+// Update the markers computed property to use the fetched dates
+const markers = computed<DatePickerMarker[]>(() =>
+  disabledDates.value.map((date) => ({
+    date,
     color: "red",
     type: "line",
     tooltip: [{ text: "Obsazeno" }],
-  },
-  {
-    date: new Date("2024-10-06"),
-    color: "red",
-    type: "line",
-    tooltip: [{ text: "Obsazeno" }],
-  },
-  {
-    date: new Date("2024-10-10"),
-    color: "red",
-    type: "line",
-    tooltip: [{ text: "Obsazeno" }],
-  },
-  {
-    date: new Date("2024-10-13"),
-    color: "red",
-    type: "line",
-    tooltip: [{ text: "Obsazeno" }],
-  },
-  {
-    date: new Date("2024-10-16"),
-    color: "red",
-    type: "line",
-    tooltip: [{ text: "Obsazeno" }],
-  },
-  {
-    date: new Date("2024-10-17"),
-    color: "red",
-    type: "line",
-    tooltip: [{ text: "Obsazeno" }],
-  },
-  {
-    date: new Date("2024-10-18"),
-    color: "red",
-    type: "line",
-    tooltip: [{ text: "Obsazeno" }],
-  },
-]);
+  }))
+);
 
 // Initialize tomorrow's date
 const tomorrow = new Date();
