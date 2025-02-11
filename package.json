@@ -28,6 +28,7 @@
         "lucide-vue-next": "^0.439.0",
         "mimetext": "^3.0.24",
         "mjml": "^4.15.3",
+        "nodemailer": "^6.10.0",
         "sst": "3.2.61",
         "superjson": "^2.2.1",
         "vee-validate": "^4.15.0",

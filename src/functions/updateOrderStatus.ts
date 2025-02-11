@@ -1,6 +1,7 @@
 import { neon } from '@neondatabase/serverless';
 import { google } from 'googleapis';
 import { JWT } from 'google-auth-library';
+import nodemailer from 'nodemailer';
 
 // Initialize Google Calendar client
 const credentials = {
@@ -201,6 +202,79 @@ async function createCalendarEvent(order: any) {
     }
 }
 
+// Add these environment variables to your configuration
+const emailConfig = {
+    admin_email: process.env.ADMIN_EMAIL,
+    smtp_user: process.env.GMAIL_USER,
+    smtp_pass: process.env.GMAIL_APP_PASSWORD
+};
+
+// Create transporter
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: emailConfig.smtp_user,
+        pass: emailConfig.smtp_pass
+    }
+});
+
+async function sendStatusEmails(order: any, status: string) {
+    const statusMessages: any = {
+        pending: "Čeká na schválení",
+        accepted: "Přijata",
+        rejected: "Zamítnuta",
+        cancelled: "Zrušena"
+    };
+
+    const orderDetails = `
+        Detaily objednávky:
+        -------------------
+        Zákazník: ${order.customer_name}
+        Telefon: ${order.customer_phone || 'Neuvedeno'}
+        Email: ${order.customer_email || 'Neuvedeno'}
+        Adresa: ${order.address_street || ''}, ${order.address_city || ''}
+        
+        Typ betonu: ${order.config_type || 'Neuvedeno'}
+        Kvalita: ${order.config_quality || 'Neuvedeno'}
+        Délka hadic: ${order.config_hose_length || 0}m
+        Výška čerpání: ${order.config_volume_height || 0}m
+        
+        Datum: ${order.date}
+        Čas: ${order.time}
+        
+        Poznámka: ${order.config_description || 'Bez poznámky'}
+    `;
+
+    // Send email to customer if email exists
+    if (order.customer_email) {
+        await transporter.sendMail({
+            from: emailConfig.smtp_user,
+            to: order.customer_email,
+            subject: `Vaše objednávka ${statusMessages[status]}`,
+            text: `Vážený zákazníku,
+
+Vaše objednávka ${statusMessages[status]}.
+
+${orderDetails}
+
+S pozdravem,
+Váš tým betonáže`
+        });
+    }
+
+    // Send email to admin
+    if (emailConfig.admin_email) {
+        await transporter.sendMail({
+            from: emailConfig.smtp_user,
+            to: emailConfig.admin_email,
+            subject: `Objednávka ${statusMessages[status]} - ${order.customer_name}`,
+            text: `Objednávka změnila status na: ${statusMessages[status]}
+
+${orderDetails}`
+        });
+    }
+}
+
 export async function handler(event: any) {
     try {
         const sql = neon(process.env.NEON_DB_URL!);
@@ -263,6 +337,13 @@ export async function handler(event: any) {
                     })
                 };
             }
+        }
+
+        // After updating the order status, send emails
+        try {
+            await sendStatusEmails(order, status);
+        } catch (emailError) {
+            console.error('Failed to send notification emails:', emailError);
         }
 
         return {
