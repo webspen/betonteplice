@@ -2,7 +2,7 @@ import { neon } from '@neondatabase/serverless';
 
 export async function handler() {
     try {
-        const sql = neon(process.env.NEON_DB_URL!);
+        const sql = neon(env.DATABASE_URL!);
 
         // Query to get all dates with their status where date is in the future
         const query = `

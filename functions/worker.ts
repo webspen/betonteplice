@@ -1,8 +1,11 @@
-// import calendar from "@googleapis/calendar"
-import { handler as updateOrderStatusHandler } from "./src/functions/updateOrderStatus"
-import { handler as createOrderHandler } from "./src/functions/createOrder"
-import { handler as getOrdersHandler } from "./src/functions/getOrders"
-import { handler as getOrderDatesHandler } from "./src/functions/getOrderDate"
+export interface Env {
+    ADMIN_PASSWORD: string
+}
+
+import { handler as updateOrderStatusHandler } from "./updateOrderStatus"
+import { handler as createOrderHandler } from "./createOrder"
+import { handler as getOrdersHandler } from "./getOrders"
+import { handler as getOrderDatesHandler } from "./getOrderDate"
 
 const ALLOWED_ORIGIN = "*"
 
@@ -18,7 +21,7 @@ export default {
     async fetch(req) {
         // calendar.calendar({
         //     version: "v3",
-        //     auth: process.env.GOOGLE_API_KEY,
+        //     auth: env.GOOGLE_API_KEY,
         // }).events.insert({
         //     requestBody: {
         //         summary: "Test event",
@@ -49,6 +52,22 @@ export default {
         const url = new URL(req.url)
 
         try {
+            // Verify password
+            if (url.pathname === "/api/verify-password" && req.method === "GET") {
+                const password = url.searchParams.get("password")
+                if (password === env.ADMIN_PASSWORD) {
+                    return new Response(JSON.stringify({ success: true }), {
+                        status: 200,
+                        headers
+                    })
+                } else {
+                    return new Response(JSON.stringify({ success: false }), {
+                        status: 401,
+                        headers
+                    })
+                }
+            }
+
             // Create order
             if (url.pathname === "/api/orders" && req.method === "POST") {
                 const response = await createOrderHandler({
@@ -111,4 +130,4 @@ export default {
             })
         }
     }
-}
+} satisfies ExportedHandler<Env>;

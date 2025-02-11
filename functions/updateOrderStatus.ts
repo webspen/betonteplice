@@ -1,21 +1,21 @@
-import { neon } from '@neondatabase/serverless';
-import { google } from 'googleapis';
-import { JWT } from 'google-auth-library';
-import nodemailer from 'nodemailer';
+import { neon } from '@neondatabase/serverless'
+import { google } from 'googleapis'
+import { JWT } from 'google-auth-library'
+import nodemailer from 'nodemailer'
 
 // Initialize Google Calendar client
 const credentials = {
-    client_email: process.env.GOOGLE_CLIENT_EMAIL,
-    private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    calendar_id: process.env.GOOGLE_CALENDAR_ID?.trim()
-};
+    client_email: env.GOOGLE_CLIENT_EMAIL,
+    private_key: env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    calendar_id: env.GOOGLE_CALENDAR_ID?.trim()
+}
 
 console.log('Credentials:', {
     hasClientEmail: !!credentials.client_email,
     hasPrivateKey: !!credentials.private_key,
     calendarId: credentials.calendar_id,
     clientEmail: credentials.client_email
-});
+})
 
 // Validate credentials
 if (!credentials.client_email || !credentials.private_key || !credentials.calendar_id) {
@@ -23,8 +23,8 @@ if (!credentials.client_email || !credentials.private_key || !credentials.calend
         hasClientEmail: !!credentials.client_email,
         hasPrivateKey: !!credentials.private_key,
         hasCalendarId: !!credentials.calendar_id
-    });
-    throw new Error('Missing required Google Calendar credentials');
+    })
+    throw new Error('Missing required Google Calendar credentials')
 }
 
 const auth = new JWT({
@@ -34,12 +34,12 @@ const auth = new JWT({
         'https://www.googleapis.com/auth/calendar',
         'https://www.googleapis.com/auth/calendar.events'
     ],
-});
+})
 
 // Test calendar access before proceeding
 async function testCalendarAccess() {
     try {
-        const calendar = google.calendar({ version: 'v3', auth });
+        const calendar = google.calendar({ version: 'v3', auth })
 
         // Try to get the calendar details first
         const calendarResponse = await calendar.calendars.get({
@@ -50,31 +50,31 @@ async function testCalendarAccess() {
                 code: error.code,
                 status: error.status,
                 calendarId: credentials.calendar_id
-            });
-            throw error;
-        });
+            })
+            throw error
+        })
 
         console.log('Successfully accessed calendar:', {
             calendarId: credentials.calendar_id,
             calendarTitle: calendarResponse.data.summary,
             timeZone: calendarResponse.data.timeZone
-        });
+        })
 
-        return calendar;
+        return calendar
     } catch (error) {
-        console.error('Calendar access test failed:', error);
-        throw new Error('Failed to access Google Calendar. Please verify calendar ID and permissions.');
+        console.error('Calendar access test failed:', error)
+        throw new Error('Failed to access Google Calendar. Please verify calendar ID and permissions.')
     }
 }
 
 // Initialize calendar with access test
-let calendar: any;
+let calendar: any
 testCalendarAccess().then(cal => {
-    calendar = cal;
-    console.log('Calendar client initialized successfully');
+    calendar = cal
+    console.log('Calendar client initialized successfully')
 }).catch(error => {
-    console.error('Failed to initialize calendar client:', error);
-});
+    console.error('Failed to initialize calendar client:', error)
+})
 
 async function createCalendarEvent(order: any) {
     try {
@@ -84,64 +84,64 @@ async function createCalendarEvent(order: any) {
             time: order.time,
             dateType: typeof order.date,
             timeType: typeof order.time
-        });
+        })
 
         // Parse the date properly
-        let dateStr = typeof order.date === 'string' ? order.date : null;
+        let dateStr = typeof order.date === 'string' ? order.date : null
 
         // If date is not a string, try to format it
         if (!dateStr && order.date instanceof Date) {
-            dateStr = order.date.toISOString().split('T')[0];
+            dateStr = order.date.toISOString().split('T')[0]
         }
 
         // Validate date string format (should be YYYY-MM-DD)
         if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-            throw new Error(`Invalid date format: ${dateStr}`);
+            throw new Error(`Invalid date format: ${dateStr}`)
         }
 
         // Parse the time properly
-        let timeStr = typeof order.time === 'string' ? order.time : null;
+        let timeStr = typeof order.time === 'string' ? order.time : null
 
         // Handle time validation
         if (!timeStr) {
-            timeStr = '12:00:00'; // Default to noon if no time provided
+            timeStr = '12:00:00' // Default to noon if no time provided
         } else {
             // Clean up the time string
-            timeStr = timeStr.trim();
+            timeStr = timeStr.trim()
 
             // Check if time matches HH:mm or HH:mm:ss format
-            const timeMatch = timeStr.match(/^(\d{1,2}):(\d{2})(:(\d{2}))?$/);
+            const timeMatch = timeStr.match(/^(\d{1,2}):(\d{2})(:(\d{2}))?$/)
             if (!timeMatch) {
-                throw new Error(`Invalid time format: ${timeStr}`);
+                throw new Error(`Invalid time format: ${timeStr}`)
             }
 
             // Ensure hours and minutes are padded
-            const hours = timeMatch[1].padStart(2, '0');
-            const minutes = timeMatch[2];
-            const seconds = timeMatch[4] || '00';
+            const hours = timeMatch[1].padStart(2, '0')
+            const minutes = timeMatch[2]
+            const seconds = timeMatch[4] || '00'
 
-            timeStr = `${hours}:${minutes}:${seconds}`;
+            timeStr = `${hours}:${minutes}:${seconds}`
         }
 
         // Create the datetime string
-        const dateTimeStr = `${dateStr}T${timeStr}`;
-        console.log('Constructed datetime string:', dateTimeStr);
+        const dateTimeStr = `${dateStr}T${timeStr}`
+        console.log('Constructed datetime string:', dateTimeStr)
 
         // Parse the datetime
-        const startTime = new Date(dateTimeStr);
+        const startTime = new Date(dateTimeStr)
 
         // Validate the parsed date
         if (isNaN(startTime.getTime())) {
-            throw new Error(`Failed to create valid date from: ${dateTimeStr}`);
+            throw new Error(`Failed to create valid date from: ${dateTimeStr}`)
         }
 
         console.log('Successfully parsed datetime:', {
             original: dateTimeStr,
             parsed: startTime,
             iso: startTime.toISOString()
-        });
+        })
 
-        const endTime = new Date(startTime.getTime() + 2 * 60 * 60 * 1000); // 2 hours duration
+        const endTime = new Date(startTime.getTime() + 2 * 60 * 60 * 1000) // 2 hours duration
 
         const event = {
             summary: `Betonáž - ${order.customer_name}`,
@@ -173,11 +173,11 @@ async function createCalendarEvent(order: any) {
                     { method: 'popup', minutes: 60 },
                 ],
             },
-        };
+        }
 
         // Log the final event object and calendar ID being used
-        console.log('Calendar event to be created:', JSON.stringify(event, null, 2));
-        console.log('Using calendar ID:', credentials.calendar_id);
+        console.log('Calendar event to be created:', JSON.stringify(event, null, 2))
+        console.log('Using calendar ID:', credentials.calendar_id)
 
         const response = await calendar.events.insert({
             calendarId: credentials.calendar_id,
@@ -189,25 +189,25 @@ async function createCalendarEvent(order: any) {
                 status: error.status,
                 details: error.errors,
                 calendarId: credentials.calendar_id
-            });
-            throw error;
-        });
+            })
+            throw error
+        })
 
-        console.log('Calendar event created successfully:', response.data.htmlLink);
-        return response.data;
+        console.log('Calendar event created successfully:', response.data.htmlLink)
+        return response.data
     } catch (error) {
-        console.error('Error creating calendar event:', error);
-        console.error('Full order data:', JSON.stringify(order, null, 2));
-        throw error;
+        console.error('Error creating calendar event:', error)
+        console.error('Full order data:', JSON.stringify(order, null, 2))
+        throw error
     }
 }
 
 // Add these environment variables to your configuration
 const emailConfig = {
-    admin_email: process.env.ADMIN_EMAIL,
-    smtp_user: process.env.GMAIL_USER,
-    smtp_pass: process.env.GMAIL_APP_PASSWORD
-};
+    admin_email: env.ADMIN_EMAIL,
+    smtp_user: env.GMAIL_USER,
+    smtp_pass: env.GMAIL_APP_PASSWORD
+}
 
 // Create transporter
 const transporter = nodemailer.createTransport({
@@ -216,7 +216,7 @@ const transporter = nodemailer.createTransport({
         user: emailConfig.smtp_user,
         pass: emailConfig.smtp_pass
     }
-});
+})
 
 async function sendStatusEmails(order: any, status: string) {
     const statusMessages: any = {
@@ -224,7 +224,7 @@ async function sendStatusEmails(order: any, status: string) {
         accepted: "Přijata",
         rejected: "Zamítnuta",
         cancelled: "Zrušena"
-    };
+    }
 
     const orderDetails = `
         Detaily objednávky:
@@ -243,7 +243,7 @@ async function sendStatusEmails(order: any, status: string) {
         Čas: ${order.time}
         
         Poznámka: ${order.config_description || 'Bez poznámky'}
-    `;
+    `
 
     // Send email to customer if email exists
     if (order.customer_email) {
@@ -259,7 +259,7 @@ ${orderDetails}
 
 S pozdravem,
 Váš tým betonáže`
-        });
+        })
     }
 
     // Send email to admin
@@ -271,37 +271,37 @@ Váš tým betonáže`
             text: `Objednávka změnila status na: ${statusMessages[status]}
 
 ${orderDetails}`
-        });
+        })
     }
 }
 
 export async function handler(event: any) {
     try {
-        const sql = neon(process.env.NEON_DB_URL!);
-        const { orderId, status } = JSON.parse(event.body);
+        const sql = neon(env.DATABASE_URL!)
+        const { orderId, status } = JSON.parse(event.body)
 
         if (!['pending', 'accepted', 'rejected', 'cancelled'].includes(status)) {
             return {
                 statusCode: 400,
                 body: JSON.stringify({ message: 'Invalid status' })
-            };
+            }
         }
 
         // First get the order details
         const getOrderQuery = `
             SELECT * FROM orders 
             WHERE id = $1
-        `;
-        const orderResult = await sql(getOrderQuery, [orderId]);
+        `
+        const orderResult = await sql(getOrderQuery, [orderId])
 
         if (orderResult.length === 0) {
             return {
                 statusCode: 404,
                 body: JSON.stringify({ message: 'Order not found' })
-            };
+            }
         }
 
-        const order = orderResult[0];
+        const order = orderResult[0]
 
         // Update the order status
         const updateQuery = `
@@ -309,14 +309,14 @@ export async function handler(event: any) {
             SET status = $1 
             WHERE id = $2 
             RETURNING *
-        `;
+        `
 
-        const result = await sql(updateQuery, [status, orderId]);
+        const result = await sql(updateQuery, [status, orderId])
 
         // If status is accepted, create a calendar event
         if (status === 'accepted') {
             try {
-                const calendarEvent = await createCalendarEvent(order);
+                const calendarEvent = await createCalendarEvent(order)
                 return {
                     statusCode: 200,
                     body: JSON.stringify({
@@ -324,9 +324,9 @@ export async function handler(event: any) {
                         order: result[0],
                         calendarEvent
                     })
-                };
+                }
             } catch (calendarError) {
-                console.error('Failed to create calendar event:', calendarError);
+                console.error('Failed to create calendar event:', calendarError)
                 // Still return success for order update even if calendar fails
                 return {
                     statusCode: 200,
@@ -335,15 +335,15 @@ export async function handler(event: any) {
                         order: result[0],
                         calendarError: 'Failed to create calendar event'
                     })
-                };
+                }
             }
         }
 
         // After updating the order status, send emails
         try {
-            await sendStatusEmails(order, status);
+            await sendStatusEmails(order, status)
         } catch (emailError) {
-            console.error('Failed to send notification emails:', emailError);
+            console.error('Failed to send notification emails:', emailError)
         }
 
         return {
@@ -352,16 +352,16 @@ export async function handler(event: any) {
                 message: 'Order status updated successfully',
                 order: result[0]
             })
-        };
+        }
 
     } catch (error) {
-        console.error('Error updating order status:', error);
+        console.error('Error updating order status:', error)
         return {
             statusCode: 500,
             body: JSON.stringify({
                 message: 'Error updating order status',
                 error: error instanceof Error ? error.message : 'Unknown error'
             })
-        };
+        }
     }
 } 

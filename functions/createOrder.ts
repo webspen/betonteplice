@@ -2,7 +2,7 @@ import { neon } from '@neondatabase/serverless';
 
 export async function handler(event: any) {
     try {
-        const sql = neon(process.env.NEON_DB_URL!);
+        const sql = neon(env.DATABASE_URL!);
         const form = JSON.parse(event.body);
 
         const query = `

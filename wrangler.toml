@@ -1,4 +1,6 @@
-[[d1_databases]]
-binding = "DB" # i.e. available in your Worker on env.DB
-database_name = "betonteplice-prod-d1"
-database_id = "8aaba2aa-8207-49fd-ba1c-c1bb99e60396"
+name = "betonteplice-cz"
+pages_build_output_dir = "dist"
+compatibility_date = "2024-09-10"
+
+[env]
+production = { }
