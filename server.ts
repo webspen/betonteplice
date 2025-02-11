@@ -1,11 +1,10 @@
-import { serve } from "bun";
 // import calendar from "@googleapis/calendar"
-import { handler as updateOrderStatusHandler } from "./src/functions/updateOrderStatus";
-import { handler as createOrderHandler } from "./src/functions/createOrder";
-import { handler as getOrdersHandler } from "./src/functions/getOrders";
-import { handler as getOrderDatesHandler } from "./src/functions/getOrderDate";
+import { handler as updateOrderStatusHandler } from "./src/functions/updateOrderStatus"
+import { handler as createOrderHandler } from "./src/functions/createOrder"
+import { handler as getOrdersHandler } from "./src/functions/getOrders"
+import { handler as getOrderDatesHandler } from "./src/functions/getOrderDate"
 
-const ALLOWED_ORIGIN = "*";
+const ALLOWED_ORIGIN = "*"
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
@@ -13,10 +12,9 @@ const corsHeaders = {
     "Access-Control-Allow-Headers": "*",
     "Access-Control-Allow-Credentials": "true",
     "Access-Control-Max-Age": "86400",
-};
+}
 
-const server = serve({
-    port: 3000,
+export default {
     async fetch(req) {
         // calendar.calendar({
         //     version: "v3",
@@ -37,18 +35,18 @@ const server = serve({
         // })
 
         // // Always add CORS headers to the response
-        const headers = new Headers(corsHeaders);
-        headers.set("Content-Type", "application/json");
+        const headers = new Headers(corsHeaders)
+        headers.set("Content-Type", "application/json")
 
         // Handle preflight requests
         if (req.method === "OPTIONS") {
             return new Response(null, {
                 headers,
                 status: 204,
-            });
+            })
         }
 
-        const url = new URL(req.url);
+        const url = new URL(req.url)
 
         try {
             // Create order
@@ -57,12 +55,12 @@ const server = serve({
                     body: await req.text(),
                     requestContext: {},
                     queryStringParameters: {},
-                } as any);
+                } as any)
 
                 return new Response(response.body, {
                     status: response.statusCode,
                     headers
-                });
+                })
             }
 
             // Get orders
@@ -70,51 +68,49 @@ const server = serve({
                 const response = await getOrdersHandler({
                     queryStringParameters: Object.fromEntries(url.searchParams),
                     requestContext: {},
-                } as any);
+                } as any)
 
                 return new Response(response.body, {
                     status: response.statusCode,
                     headers
-                });
+                })
             }
 
             // Get order dates
             if (url.pathname === "/api/orders/dates" && req.method === "GET") {
-                const response = await getOrderDatesHandler();
+                const response = await getOrderDatesHandler()
 
                 return new Response(response.body, {
                     status: response.statusCode,
                     headers
-                });
+                })
             }
 
             // Update order status
             if (url.pathname.match(/\/api\/orders\/\d+\/status/) && req.method === "PUT") {
-                const orderId = url.pathname.split("/")[3];
+                const orderId = url.pathname.split("/")[3]
                 const response = await updateOrderStatusHandler({
                     pathParameters: { orderId },
                     body: await req.text(),
                     requestContext: {},
-                } as any);
+                } as any)
 
                 return new Response(response.body, {
                     status: response.statusCode,
                     headers
-                });
+                })
             }
 
             return new Response(JSON.stringify({ message: "Not Found" }), {
                 status: 404,
                 headers
-            });
+            })
         } catch (error) {
-            console.error("Server error:", error);
+            console.error("Server error:", error)
             return new Response(JSON.stringify({ message: "Internal Server Error" }), {
                 status: 500,
                 headers
-            });
+            })
         }
-    },
-});
-
-console.log(`Server running at http://localhost:${server.port}`);
+    }
+}
