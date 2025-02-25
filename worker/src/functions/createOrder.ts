@@ -1,6 +1,6 @@
 import { neon } from '@neondatabase/serverless';
 
-export async function handler(event: any) {
+export const createOrderHandler = async (event: any) => {
     try {
         const sql = neon(process.env.NEON_DB_URL!);
         const form = JSON.parse(event.body);
@@ -77,7 +77,7 @@ export async function handler(event: any) {
             })
         };
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error creating order:', error);
         return {
             statusCode: 500,
@@ -87,4 +87,4 @@ export async function handler(event: any) {
             })
         };
     }
-} 
+}; 

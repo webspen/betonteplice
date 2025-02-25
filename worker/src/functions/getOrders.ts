@@ -1,6 +1,6 @@
 import { neon } from '@neondatabase/serverless';
 
-export async function handler(event: any) {
+export const getOrdersHandler = async (event: any) => {
     try {
         const sql = neon(process.env.NEON_DB_URL!);
         const queryParams = event.queryStringParameters || {};
@@ -38,11 +38,11 @@ export async function handler(event: any) {
             body: JSON.stringify(results)
         };
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error fetching orders:', error);
         return {
             statusCode: 500,
             body: JSON.stringify({ message: 'Error fetching orders' })
         };
     }
-} 
+}; 

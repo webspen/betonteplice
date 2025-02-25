@@ -4,11 +4,11 @@ import { Loader } from "@googlemaps/js-api-loader";
 import DatePicker from "@vuepic/vue-datepicker";
 import type { AresApiResponse } from "../types";
 import { onMounted, computed, ref, watch } from "vue";
-import { watchDebounced } from "@vueuse/core";
 import { z } from "zod";
-import { useAsyncState } from "@vueuse/core";
 import "@vuepic/vue-datepicker/dist/main.css";
-import { form } from "./state";
+import { useAsyncState } from "@vueuse/core";
+import type { Ref } from "vue";
+import { API_BASE_URL } from "@/config";
 
 // Validation schema
 const orderSchema = z.object({
@@ -141,44 +141,54 @@ watch(
   }
 );
 
-// Add this type
-type OrderDate = {
+// Define interfaces
+interface OrderDate {
   date: string;
-  status: "accepted" | "pending";
-};
-
-// Replace the existing disabledDates ref with this
-const { state: disabledDates } = useAsyncState(getOrderDates(), [], {
-  immediate: true,
-});
-
-// Add this function to fetch order dates
-async function getOrderDates(): Promise<Date[]> {
-  try {
-    const response = await fetch(
-      `${import.meta.env.VITE_API_URL}/orders/dates`
-    );
-    if (!response.ok) throw new Error("Failed to fetch order dates");
-
-    const orders: OrderDate[] = await response.json();
-
-    // Convert accepted order dates to Date objects
-    return orders
-      .filter((order) => order.status === "accepted")
-      .map((order) => new Date(order.date));
-  } catch (error) {
-    console.error("Error fetching order dates:", error);
-    return [];
-  }
+  status: string;
+  // add other properties if needed
 }
 
-// Update the markers computed property to use the fetched dates
+interface ProcessedDate {
+  date: Date;
+  status: string;
+}
+
+// Function to convert string dates to Date objects
+function processOrderDates(dates: OrderDate[]): ProcessedDate[] {
+  return dates.map((order) => ({
+    date: new Date(order.date),
+    status: order.status,
+  }));
+}
+
+// Get order dates and process them
+const { state: rawDisabledDates } = useAsyncState<OrderDate[]>(
+  async () => {
+    const dates = await getOrderDates();
+    return dates;
+  },
+  [],
+  {
+    // your options here
+  }
+);
+
+// Convert string dates to Date objects for the datepicker
+const disabledDates = computed(() =>
+  rawDisabledDates.value.map((order) => new Date(order.date))
+);
+
+// Create markers for the datepicker
 const markers = computed<DatePickerMarker[]>(() =>
-  disabledDates.value.map((date) => ({
-    date,
-    color: "red",
-    type: "line",
-    tooltip: [{ text: "Obsazeno" }],
+  rawDisabledDates.value.map((order) => ({
+    date: new Date(order.date), // Convert string to Date
+    color: order.status === "pending" ? "orange" : "red",
+    type: "line" as const,
+    tooltip: [
+      {
+        text: `Status: ${order.status}`,
+      },
+    ],
   }))
 );
 
@@ -236,7 +246,7 @@ const validateCurrentStep = async () => {
           customer_name: true,
           customer_phone: true,
           customer_email: true,
-        };
+        } as const;
 
         // Add contact person fields if not same as responsible
         if (!contactSameAsResponsible.value) {
@@ -315,12 +325,13 @@ const onSubmit = async () => {
     }
 
     // Format date if needed
-    if (formData.date instanceof Date) {
-      formData.date = formData.date.toISOString().split("T")[0];
+    if (formData.date) {
+      const dateObj = new Date(formData.date);
+      formData.date = dateObj.toISOString().split("T")[0];
     }
 
     const validatedData = await orderSchema.parseAsync(formData);
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/orders`, {
+    const response = await fetch(`${API_BASE_URL}/orders`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -379,6 +390,9 @@ onMounted(async () => {
 // Add these refs to your script section after the form ref
 const contactSameAsResponsible = ref(true);
 const confirmation = ref(false);
+
+// Add this if you need to declare the getOrderDates function type
+declare function getOrderDates(): Promise<OrderDate[]>;
 </script>
 
 <template>

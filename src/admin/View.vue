@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
-import RequestSection from "@/components/admin/RequestSection.vue";
-import DatePicker from "@vuepic/vue-datepicker";
-import "@vuepic/vue-datepicker/dist/main.css";
-import { useRouter } from "vue-router";
+import { ref, onMounted } from "vue";
+import { API_BASE_URL } from "@/config";
+// import RequestSection from "@/components/admin/RequestSection.vue";
+// import DatePicker from "@vuepic/vue-datepicker";
+// import "@vuepic/vue-datepicker/dist/main.css";
+// import { useRouter } from "vue-router";
 
 // Sample data (you can replace with real data)
 // const requests = useAsyncState<UserRequest[]>(async () => {
@@ -11,31 +12,26 @@ import { useRouter } from "vue-router";
 //     return fakeData.requests
 // }, [])
 
-const requests = {
-  state: ref<any[]>([]),
-  isLoading: ref(false),
-};
+// const waitingRequests = computed(() =>
+//   requests.state.value.filter((req) => req.status === "pending")
+// );
+// const acceptedRequests = computed(() =>
+//   requests.state.value.filter((req) => req.status === "accepted")
+// );
+// const rejectedRequests = computed(() =>
+//   requests.state.value.filter((req) => req.status === "rejected")
+// );
+// const canceledRequests = computed(() =>
+//   requests.state.value.filter((req) => req.status === "cancelled")
+// );
 
-const waitingRequests = computed(() =>
-  requests.state.value.filter((req) => req.status === "pending")
-);
-const acceptedRequests = computed(() =>
-  requests.state.value.filter((req) => req.status === "accepted")
-);
-const rejectedRequests = computed(() =>
-  requests.state.value.filter((req) => req.status === "rejected")
-);
-const canceledRequests = computed(() =>
-  requests.state.value.filter((req) => req.status === "cancelled")
-);
-
-const router = useRouter();
+// const router = useRouter();
 const isAuthenticated = ref(false);
 const email = ref("");
 const password = ref("");
 const loginError = ref("");
 
-const orders = ref([]);
+const orders = ref<any[]>([]);
 const currentPage = ref(1);
 const totalPages = ref(1);
 const itemsPerPage = 10;
@@ -59,7 +55,7 @@ const handleLogin = () => {
 
 const loadOrders = async () => {
   try {
-    let url = `${import.meta.env.VITE_API_URL}/orders?`;
+    let url = `${API_BASE_URL}/orders?`;
 
     if (statusFilter.value) {
       url += `status=${statusFilter.value}&`;
@@ -92,13 +88,10 @@ const confirmStatusUpdate = async (
       : "cancel";
   if (confirm(`Are you sure you want to ${action} this order?`)) {
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/orders/${orderId}/status`,
-        {
-          method: "PUT",
-          body: JSON.stringify({ orderId, status }),
-        }
-      );
+      const response = await fetch(`${API_BASE_URL}/orders/${orderId}/status`, {
+        method: "PUT",
+        body: JSON.stringify({ orderId, status }),
+      });
 
       if (response.ok) {
         await loadOrders();

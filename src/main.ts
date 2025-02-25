@@ -35,6 +35,7 @@ const router = createRouter({
 
 // Add navigation guard for admin route
 router.beforeEach((to, from, next) => {
+    console.log(to.path, from.path)
     if (to.path === '/admin') {
         const isAuthenticated = localStorage.getItem('adminAuthenticated') === 'true'
         if (!isAuthenticated && to.path === '/admin') {

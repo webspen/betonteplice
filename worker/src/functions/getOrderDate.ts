@@ -1,6 +1,6 @@
 import { neon } from '@neondatabase/serverless';
 
-export async function handler() {
+export const getOrderDatesHandler = async () => {
     try {
         const sql = neon(process.env.NEON_DB_URL!);
 
@@ -32,7 +32,7 @@ export async function handler() {
             body: JSON.stringify(formattedResults)
         };
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error fetching order dates:', error);
         return {
             statusCode: 500,
@@ -46,4 +46,4 @@ export async function handler() {
             })
         };
     }
-} 
+}; 

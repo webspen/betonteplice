@@ -1,32 +1,15 @@
 {
     "compilerOptions": {
-        "target": "ESNext",
-        "lib": [
-            "ESNext"
-        ],
-        "module": "esnext",
+        "composite": true,
         "skipLibCheck": true,
-        /* Bundler mode */
+        "module": "ESNext",
         "moduleResolution": "bundler",
-        "allowImportingTsExtensions": true,
-        "isolatedModules": true,
-        "moduleDetection": "force",
-        "noEmit": true,
-        /* Linting */
-        "strict": true,
-        "noUnusedLocals": true,
-        "noUnusedParameters": true,
-        "noFallthroughCasesInSwitch": true,
-        "resolveJsonModule": true,
-        "esModuleInterop": true,
-        "paths": {
-            "@/*": [
-                "./src/*"
-            ]
-        }
+        "allowSyntheticDefaultImports": true,
+        "types": [
+            "node"
+        ]
     },
     "include": [
-        "vite.config.ts",
-        "tailwind.config.ts",
+        "vite.config.ts"
     ]
 }

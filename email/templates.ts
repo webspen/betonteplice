@@ -1,4 +1,5 @@
 import mjml2html from "mjml"
+import type { MJMLParsingOptions } from 'mjml-core'
 
 const Header = /*xml*/`
     <mj-column>
@@ -142,7 +143,22 @@ const AdminButtons = /*xml*/`
     </mj-column>
 `
 
-export const OrderEmailTemplateHtml = mjml2html(/*xml*/`
+interface EmailTemplateData {
+    // define your template data interface
+    [key: string]: any;
+}
+
+export function renderTemplate(template: string, data: EmailTemplateData): string {
+    const options: MJMLParsingOptions = {
+        keepComments: false,
+        beautify: true,
+        minify: true,
+    };
+
+    return mjml2html(template, options).html;
+}
+
+export const OrderEmailTemplateHtml = renderTemplate(/*xml*/`
     <mjml>
         <mj-body>
             <mj-section>
@@ -156,17 +172,9 @@ export const OrderEmailTemplateHtml = mjml2html(/*xml*/`
             </mj-section>
         </mj-body>
     </mjml>
-`, {
-    minify: true,
-    validationLevel: "strict",
-    minifyOptions: {
-        collapseWhitespace: true,
-        minifyCSS: true,
-        minifyJS: true,
-    },
-})
+`, {})
 
-export const AdminEmailTemplateHtml = mjml2html(/*xml*/`
+export const AdminEmailTemplateHtml = renderTemplate(/*xml*/`
     <mjml>
         <mj-body>
             <mj-section>
@@ -180,15 +188,7 @@ export const AdminEmailTemplateHtml = mjml2html(/*xml*/`
             </mj-section>
         </mj-body>
     </mjml>
-`, {
-    minify: true,
-    validationLevel: "strict",
-    minifyOptions: {
-        collapseWhitespace: true,
-        minifyCSS: true,
-        minifyJS: true,
-    },
-})
+`, {})
 
 export default [
     OrderEmailTemplateHtml,

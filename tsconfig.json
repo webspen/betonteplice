@@ -1,9 +1,46 @@
 {
-    "files": [],
-    "references": [
-        {
-            "path": "./tsconfig.app.json"
+    "compilerOptions": {
+        "target": "ESNext",
+        "useDefineForClassFields": true,
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "strict": true,
+        "jsx": "preserve",
+        "resolveJsonModule": true,
+        "isolatedModules": true,
+        "esModuleInterop": true,
+        "lib": [
+            "ESNext",
+            "DOM",
+            "DOM.Iterable"
+        ],
+        "skipLibCheck": true,
+        "noEmit": true,
+        "baseUrl": ".",
+        "paths": {
+            "@/*": [
+                "./src/*"
+            ]
         },
+        "types": [
+            "vite/client",
+            "@types/mjml",
+            "@vuepic/vue-datepicker"
+        ]
+    },
+    "include": [
+        "src/**/*.ts",
+        "src/**/*.d.ts",
+        "src/**/*.tsx",
+        "src/**/*.vue",
+        "src/types/**/*.d.ts"
+    ],
+    "exclude": [
+        "dist",
+        "node_modules",
+        "worker"
+    ],
+    "references": [
         {
             "path": "./tsconfig.node.json"
         }
