@@ -88,7 +88,7 @@ const confirmStatusUpdate = async (
       : "cancel";
   if (confirm(`Are you sure you want to ${action} this order?`)) {
     try {
-      const response = await fetch(`${API_BASE_URL}/orders/${orderId}/status`, {
+      const response = await fetch(`${API_BASE_URL}/orders/status`, {
         method: "PUT",
         body: JSON.stringify({ orderId, status }),
       });

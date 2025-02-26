@@ -3,6 +3,7 @@ import { neon } from '@neondatabase/serverless';
 // import { JWT } from 'google-auth-library';
 import { createCalendarEvent } from '../services/calendar';
 
+
 // const auth = new JWT({
 //     email: credentials.client_email,
 //     key: credentials.private_key,
@@ -197,6 +198,11 @@ export const updateOrderStatusHandler = async (request: Request, env: Env) => {
         // If status is accepted, create a calendar event
         if (status === 'accepted') {
             try {
+                console.log('Order data for calendar:', {
+                    date: order.date,
+                    time: order.time,
+                    fullOrder: order
+                });
                 await createCalendarEvent(order, env);
             } catch (calendarError) {
                 console.error('Failed to create calendar event:', calendarError);

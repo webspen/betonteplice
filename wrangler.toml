@@ -1,6 +1,6 @@
 name = "betonteplice-api"
 main = "worker/src/index.ts"
-compatibility_date = "2024-02-11"
+compatibility_date = "2024-09-23"
 
 # Enable Node.js compatibility mode
 compatibility_flags = ["nodejs_compat"]
@@ -9,16 +9,18 @@ compatibility_flags = ["nodejs_compat"]
 enabled = true
 head_sampling_rate = 1 # optional. default = 1.
 
-# Define environment variable types
-[vars]
-GOOGLE_CLIENT_EMAIL = ""
-GOOGLE_CALENDAR_ID = ""
-NEON_DB_URL = ""
-ADMIN_EMAIL = ""
-ALLOWED_ORIGIN = "https://betonteplice.cz"
-
 # For secrets like GOOGLE_PRIVATE_KEY, use:
+# wrangler secret put NEON_DB_URL
+# wrangler secret put GOOGLE_CLIENT_EMAIL
 # wrangler secret put GOOGLE_PRIVATE_KEY
+# wrangler secret put GOOGLE_CALENDAR_ID
+# wrangler secret put VITE_ADMIN_EMAIL
+# wrangler secret put VITE_ADMIN_PASSWORD
+# wrangler secret put ADMIN_EMAIL
+# wrangler secret put GMAIL_USER
+# wrangler secret put GMAIL_APP_PASSWORD
+# wrangler secret put ALLOWED_ORIGIN
+
 
 [build]
 command = "bun run build:worker"
@@ -33,3 +35,4 @@ command = "bun run build:worker"
 # - ADMIN_EMAIL
 # - GMAIL_USER
 # - GMAIL_APP_PASSWORD 
+# - ALLOWED_ORIGIN
