@@ -2,7 +2,7 @@ import { neon } from '@neondatabase/serverless';
 
 export const getOrdersHandler = async (event: any) => {
     try {
-        const sql = neon(process.env.NEON_DB_URL!);
+        const sql = neon(event.env.NEON_DB_URL!);
         const queryParams = event.queryStringParameters || {};
 
         let query = 'SELECT * FROM orders';

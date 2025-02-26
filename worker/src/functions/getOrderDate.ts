@@ -1,8 +1,8 @@
 import { neon } from '@neondatabase/serverless';
 
-export const getOrderDatesHandler = async () => {
+export const getOrderDatesHandler = async (event: any) => {
     try {
-        const sql = neon(process.env.NEON_DB_URL!);
+        const sql = neon(event.env.NEON_DB_URL!);
 
         // Query to get all dates with their status where date is in the future
         const query = `

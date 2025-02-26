@@ -38,6 +38,7 @@ export default {
                 body: await request.text(),
                 requestContext: {},
                 queryStringParameters: {},
+                env: env,
             });
             return new Response(response.body, {
                 status: response.statusCode,
@@ -49,6 +50,7 @@ export default {
             const response = await getOrdersHandler({
                 queryStringParameters: Object.fromEntries(url.searchParams),
                 requestContext: {},
+                env: env,
             });
             return new Response(response.body, {
                 status: response.statusCode,
@@ -57,7 +59,7 @@ export default {
         }
 
         if (url.pathname === '/api/orders/dates' && request.method === 'GET') {
-            const response = await getOrderDatesHandler();
+            const response = await getOrderDatesHandler({ env });
             return new Response(response.body, {
                 status: response.statusCode,
                 headers: corsHeaders,
