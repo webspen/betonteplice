@@ -2,7 +2,19 @@ import { neon } from '@neondatabase/serverless';
 // import { google } from 'googleapis';
 // import { JWT } from 'google-auth-library';
 import { createCalendarEvent } from '../services/calendar';
+import { sendEmail } from '../services/email';
 
+interface Env {
+    NEON_DB_URL: string;
+    ADMIN_EMAIL: string;
+    GMAIL_USER: string;
+    GMAIL_CLIENT_ID: string;
+    GMAIL_CLIENT_SECRET: string;
+    GMAIL_REFRESH_TOKEN: string;
+    GOOGLE_CLIENT_EMAIL: string;
+    GOOGLE_PRIVATE_KEY: string;
+    GOOGLE_CALENDAR_ID: string;
+}
 
 // const auth = new JWT({
 //     email: credentials.client_email,
@@ -107,46 +119,24 @@ async function sendStatusEmails(order: any, status: string, env: Env) {
         Poznámka: ${order.config_description || 'Bez poznámky'}
     `;
 
-    // Create email payload with proper typing
-    const emailPayload: EmailPayload = {
-        from: {
-            email: "noreply@betonteplice.cz",
-            name: "Beton Teplice"
-        },
-        to: [], // Initialize empty array
-        subject: `Vaše objednávka ${statusMessages[status]}`,
-        content: [{
-            type: "text/plain",
-            value: `Vážený zákazníku,\n\nVaše objednávka ${statusMessages[status]}.\n\n${orderDetails}\n\nS pozdravem,\nVáš tým betonáže`
-        }]
-    };
-
+    // Send email to customer if email is provided
     if (order.customer_email) {
-        emailPayload.to = [{ email: order.customer_email }];
-        await fetch('https://api.mailchannels.net/tx/v1/send', {
-            method: 'POST',
-            headers: {
-                'content-type': 'application/json',
-            },
-            body: JSON.stringify(emailPayload),
-        });
+        await sendEmail({
+            from: `"Beton Teplice" <${env.GMAIL_USER}>`,
+            to: [order.customer_email],
+            subject: `Vaše objednávka ${statusMessages[status]}`,
+            text: `Vážený zákazníku,\n\nVaše objednávka ${statusMessages[status]}.\n\n${orderDetails}\n\nS pozdravem,\nVáš tým betonáže`
+        }, env);
     }
 
     // Send admin notification
     if (env.ADMIN_EMAIL) {
-        const adminEmailPayload: EmailPayload = {
-            ...emailPayload,
-            to: [{ email: env.ADMIN_EMAIL }],
-            subject: `Objednávka ${statusMessages[status]} - ${order.customer_name}`
-        };
-
-        await fetch('https://api.mailchannels.net/tx/v1/send', {
-            method: 'POST',
-            headers: {
-                'content-type': 'application/json',
-            },
-            body: JSON.stringify(adminEmailPayload),
-        });
+        await sendEmail({
+            from: `"Beton Teplice" <${env.GMAIL_USER}>`,
+            to: [env.ADMIN_EMAIL],
+            subject: `Objednávka ${statusMessages[status]} - ${order.customer_name}`,
+            text: `Nová objednávka byla ${statusMessages[status]}.\n\n${orderDetails}`
+        }, env);
     }
 }
 

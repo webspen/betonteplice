@@ -2,15 +2,18 @@ import { createOrderHandler } from './functions/createOrder';
 import { getOrdersHandler } from './functions/getOrders';
 import { getOrderDatesHandler } from './functions/getOrderDate';
 import { updateOrderStatusHandler } from './functions/updateOrderStatus';
+import { ExecutionContext } from '@cloudflare/workers-types';
 
 export interface Env {
     NEON_DB_URL: string;
+    ADMIN_EMAIL: string;
     GOOGLE_CLIENT_EMAIL: string;
     GOOGLE_PRIVATE_KEY: string;
     GOOGLE_CALENDAR_ID: string;
-    ADMIN_EMAIL: string;
     GMAIL_USER: string;
-    GMAIL_APP_PASSWORD: string;
+    GMAIL_CLIENT_ID: string;
+    GMAIL_CLIENT_SECRET: string;
+    GMAIL_REFRESH_TOKEN: string;
     ALLOWED_ORIGIN: string;
 }
 

@@ -20,7 +20,9 @@ head_sampling_rate = 1 # optional. default = 1.
 # wrangler secret put GMAIL_USER
 # wrangler secret put GMAIL_APP_PASSWORD
 # wrangler secret put ALLOWED_ORIGIN
-
+# wrangler secret put GMAIL_CLIENT_ID
+# wrangler secret put GMAIL_CLIENT_SECRET
+# wrangler secret put GMAIL_REFRESH_TOKEN
 
 [build]
 command = "bun run build:worker"
@@ -36,3 +38,6 @@ command = "bun run build:worker"
 # - GMAIL_USER
 # - GMAIL_APP_PASSWORD 
 # - ALLOWED_ORIGIN
+# - GMAIL_CLIENT_ID
+# - GMAIL_CLIENT_SECRET
+# - GMAIL_REFRESH_TOKEN
