@@ -35,14 +35,9 @@ export const getOrderDatesHandler = async (event: any) => {
     } catch (error: any) {
         console.error('Error fetching order dates:', error);
         return {
-            statusCode: 500,
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
+            statusCode: error.message === 'Unauthorized' ? 401 : 500,
             body: JSON.stringify({
-                message: 'Error fetching order dates',
-                error: error instanceof Error ? error.message : 'Unknown error'
+                message: error.message === 'Unauthorized' ? 'Unauthorized' : 'Error fetching orders dates'
             })
         };
     }

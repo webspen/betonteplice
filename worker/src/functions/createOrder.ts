@@ -1,4 +1,5 @@
 import { neon } from '@neondatabase/serverless';
+import { sendEmail } from '../services/email';
 
 export const createOrderHandler = async (event: any) => {
     try {
@@ -68,6 +69,40 @@ export const createOrderHandler = async (event: any) => {
             form.config.volume_height,
             form.config.description
         ]);
+
+        // Send confirmation email to customer
+        await sendEmail({
+            from: `"Beton Teplice" <${event.env.GMAIL_USER}>`,
+            to: [form.customer_email],
+            subject: `Potvrzení objednávky - Beton Teplice`,
+            text: `Vážený zákazníku,
+
+Děkujeme za Vaši objednávku u společnosti Beton Teplice. Vaše objednávka byla úspěšně přijata do systému.
+
+Detaily objednávky:
+-------------------
+Číslo objednávky: ${result[0].id}
+Zákazník: ${form.customer_name}
+Telefon: ${form.customer_phone || 'Neuvedeno'}
+Email: ${form.customer_email || 'Neuvedeno'}
+Adresa: ${form.address_street || ''}, ${form.address_city || ''}, ${form.address_zip || ''}
+
+Technické specifikace:
+-------------------
+Typ betonu: ${form.config.type || 'Neuvedeno'}
+Kvalita: ${form.config.quality || 'Neuvedeno'}
+Výška čerpání: ${form.config.volume_height || 0}m³
+
+Termín dodání:
+-------------------
+Datum: ${form.date}
+Čas: ${form.time}
+
+O dalším průběhu zpracování Vaší objednávky Vás budeme informovat.
+
+S pozdravem,
+Tým Beton Teplice`
+        }, event.env);
 
         return {
             statusCode: 200,

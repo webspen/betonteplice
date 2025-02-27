@@ -314,9 +314,11 @@ function formatTime(timeObj: {
   return `${hours}:${minutes}:00`;
 }
 
+const submitting = ref(false);
 // Update the onSubmit function
 const onSubmit = async () => {
   try {
+    submitting.value = true;
     const formData = { ...form.value };
 
     // Format time before submission
@@ -345,10 +347,43 @@ const onSubmit = async () => {
 
     const result = await response.json();
     console.log("Order submitted successfully:", result);
-    // Show success message or redirect
+
+    if (result.orderId) {
+      //reset the form
+      form.value = {
+        customer_type: "fyzicka",
+        customer_name: "",
+        customer_vat: false,
+        customer_phone: "",
+        customer_email: "",
+        address_type: "existing",
+        address_street: "",
+        address_state: "",
+        address_city: "",
+        address_zip: "",
+        address_country: "CZ",
+        date: "",
+        time: "07:00",
+        config: {
+          type: "vlastni",
+          quality: "",
+          hose_length: 0,
+          volume_height: 0,
+        },
+      };
+
+      currentStep.value = 1;
+
+      alert(
+        "Objednávka byla úspěšně odeslána. Váš objednací číslo je: #" +
+          result.orderId
+      );
+    }
   } catch (error) {
     console.error("Error submitting order:", error);
     // Show error message
+  } finally {
+    submitting.value = false;
   }
 };
 
@@ -994,9 +1029,14 @@ declare function getOrderDates(): Promise<OrderDate[]>;
           <button
             v-if="currentStep === steps.length"
             type="submit"
-            class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-500"
+            :class="
+              submitting
+                ? 'px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-500 cursor-not-allowed opacity-50'
+                : 'px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-500'
+            "
+            :disabled="submitting"
           >
-            Odeslat
+            {{ submitting ? "Odesílání..." : "Odeslat" }}
           </button>
         </div>
       </form>

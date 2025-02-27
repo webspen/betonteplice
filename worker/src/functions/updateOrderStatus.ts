@@ -140,7 +140,11 @@ async function sendStatusEmails(order: any, status: string, env: Env) {
     }
 }
 
-export const updateOrderStatusHandler = async (request: Request, env: Env) => {
+interface CustomError extends Error {
+    message: string;
+}
+
+export const updateOrderStatusHandler = async (request: Request, env: Env): Promise<Response> => {
     try {
         const sql = neon(env.NEON_DB_URL);
         const body = await request.json() as UpdateOrderStatusRequest;
@@ -210,78 +214,15 @@ export const updateOrderStatusHandler = async (request: Request, env: Env) => {
             headers: { 'Content-Type': 'application/json' }
         });
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Error updating order status:', error);
+        const customError = error as CustomError;
         return new Response(JSON.stringify({
-            message: 'Error updating order status',
-            error: error instanceof Error ? error.message : 'Unknown error'
+            message: customError?.message || 'Unknown error',
+            error: customError?.message === 'Unauthorized' ? 'Unauthorized' : 'Error updating order status'
         }), {
-            status: 500,
+            status: customError?.message === 'Unauthorized' ? 401 : 500,
             headers: { 'Content-Type': 'application/json' }
         });
     }
 };
-
-// Also add an interface for the order type
-interface Order {
-    id: number;
-    customer_name: string;
-    customer_email: string;
-    customer_phone?: string;
-    address_street?: string;
-    address_city?: string;
-    address_zip?: string;
-    date: string;
-    time: string;
-    config_type?: string;
-    config_quality?: string;
-    config_hose_length?: number;
-    config_volume_height?: number;
-    config_description?: string;
-    status: 'pending' | 'accepted' | 'rejected';
-    created_at: string;
-    updated_at: string;
-}
-
-// async function sendStatusEmails(order: Order, status: string, env: Env) {
-//     const emailPayload = {
-//         personalizations: [{
-//             to: [{ email: order.customer_email }]
-//         }],
-//         from: {
-//             email: "noreply@betonteplice.cz",
-//             name: "Beton Teplice"
-//         },
-//         subject: `Objednávka ${status === 'accepted' ? 'potvrzena' : 'zamítnuta'}`,
-//         content: [{
-//             type: "text/plain",
-//             value: `Vaše objednávka byla ${status === 'accepted' ? 'potvrzena' : 'zamítnuta'}.`
-//         }]
-//     };
-
-//     // Send customer email
-//     await fetch('https://api.mailchannels.net/tx/v1/send', {
-//         method: 'POST',
-//         headers: {
-//             'content-type': 'application/json',
-//         },
-//         body: JSON.stringify(emailPayload),
-//     });
-
-//     // Send admin notification
-//     const adminEmailPayload = {
-//         ...emailPayload,
-//         personalizations: [{
-//             to: [{ email: env.ADMIN_EMAIL }]
-//         }],
-//         subject: `Nová objednávka ${status === 'accepted' ? 'potvrzena' : 'zamítnuta'}`,
-//     };
-
-//     await fetch('https://api.mailchannels.net/tx/v1/send', {
-//         method: 'POST',
-//         headers: {
-//             'content-type': 'application/json',
-//         },
-//         body: JSON.stringify(adminEmailPayload),
-//     });
-// } 

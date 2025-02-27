@@ -1,6 +1,10 @@
 import { neon } from '@neondatabase/serverless';
 
-export const getOrdersHandler = async (event: any) => {
+interface CustomError extends Error {
+    message: string;
+}
+
+export const getOrdersHandler = async (event: any): Promise<{ statusCode: number; body: string }> => {
     try {
         const sql = neon(event.env.NEON_DB_URL!);
         const queryParams = event.queryStringParameters || {};
@@ -38,11 +42,14 @@ export const getOrdersHandler = async (event: any) => {
             body: JSON.stringify(results)
         };
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error fetching orders:', error);
+        const customError = error as CustomError;
         return {
-            statusCode: 500,
-            body: JSON.stringify({ message: 'Error fetching orders' })
+            statusCode: customError?.message === 'Unauthorized' ? 401 : 500,
+            body: JSON.stringify({
+                message: customError?.message === 'Unauthorized' ? 'Unauthorized' : 'Error fetching orders'
+            })
         };
     }
 }; 

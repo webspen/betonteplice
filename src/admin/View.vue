@@ -40,15 +40,28 @@ const statusFilter = ref("");
 const dateFrom = ref("");
 const dateTo = ref("");
 
-const handleLogin = () => {
-  if (
-    email.value === import.meta.env.VITE_ADMIN_EMAIL &&
-    password.value === import.meta.env.VITE_ADMIN_PASSWORD
-  ) {
+const handleLogin = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/admin/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: email.value,
+        password: password.value,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Login failed");
+    }
+
+    const { token } = await response.json();
+    localStorage.setItem("adminToken", token);
     isAuthenticated.value = true;
-    localStorage.setItem("adminAuthenticated", "true");
     loadOrders();
-  } else {
+  } catch (error) {
     loginError.value = "Invalid credentials";
   }
 };
@@ -67,7 +80,22 @@ const loadOrders = async () => {
       url += `dateTo=${dateTo.value}&`;
     }
 
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        // Handle unauthorized access
+        isAuthenticated.value = false;
+        localStorage.removeItem("adminToken");
+        return;
+      }
+      throw new Error("Failed to load orders");
+    }
+
     const data = await response.json();
     orders.value = data;
     calculatePagination();
@@ -90,6 +118,10 @@ const confirmStatusUpdate = async (
     try {
       const response = await fetch(`${API_BASE_URL}/orders/status`, {
         method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
+        },
         body: JSON.stringify({ orderId, status }),
       });
 
@@ -119,7 +151,8 @@ const formatDate = (date: string) => {
 };
 
 onMounted(() => {
-  if (localStorage.getItem("adminAuthenticated") === "true") {
+  const token = localStorage.getItem("adminToken");
+  if (token) {
     isAuthenticated.value = true;
     loadOrders();
   }
