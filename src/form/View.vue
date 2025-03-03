@@ -14,24 +14,46 @@ import { API_BASE_URL } from "@/config";
 const orderSchema = z.object({
   customer_type: z.enum(["fyzicka", "podnikatel", "pravnicka", "baracnik"]),
   customer_cid: z.string().optional(),
-  customer_name: z.string().min(3).max(200),
+  customer_name: z
+    .string({ required_error: "Jméno je povinné" })
+    .min(3, { message: "Jméno musí být alespoň 3 znaky dlouhé" })
+    .max(200, { message: "Jméno může být maximálně 200 znaků dlouhé" }),
   customer_vat: z.boolean().default(false),
   customer_vat_number: z.string().optional(),
-  customer_phone: z.string().min(9),
-  customer_email: z.string().email(),
+  customer_phone: z
+    .string()
+    .min(9, { message: "Telefonní číslo musí být alespoň 9 číslic dlouhé" })
+    .max(15, {
+      message: "Telefonní číslo může být maximálně 15 číslic dlouhé",
+    }),
+  customer_email: z
+    .string()
+    .email({ message: "Neplatná emailová adresa" })
+    .max(255, { message: "Email může být maximálně 255 znaků dlouhý" }),
   contact_name: z.string().optional(),
   contact_phone: z.string().optional(),
-  contact_email: z.string().email().optional(),
+  contact_email: z
+    .string()
+    .email({ message: "Neplatná emailová adresa" })
+    .optional(),
   address_type: z.enum(["existing", "construction"]),
-  address_street: z.string(),
-  address_state: z.string(),
-  address_city: z.string(),
-  address_zip: z.string(),
+  address_street: z
+    .string({ required_error: "Adresa je povinná" })
+    .min(3, { message: "Adresa musí být alespoň 3 znaky dlouhá" }),
+  address_state: z
+    .string({ required_error: "Stát je povinný" })
+    .min(3, { message: "Stát musí být alespoň 3 znaky dlouhý" }),
+  address_city: z
+    .string({ required_error: "Město je povinné" })
+    .min(3, { message: "Město musí být alespoň 3 znaky dlouhé" }),
+  address_zip: z
+    .string({ required_error: "PSČ je povinné" })
+    .min(5, { message: "PSČ musí být alespoň 5 číslic dlouhé" }),
   address_country: z.string().default("CZ"),
   address_note: z.string().optional(),
   date: z
     .union([z.string(), z.date()])
-    .transform((val) =>
+    .transform((val: any) =>
       val instanceof Date ? val.toISOString().split("T")[0] : val
     ),
   time: z
@@ -43,14 +65,23 @@ const orderSchema = z.object({
         seconds: z.number().optional(),
       }),
     ])
-    .transform((val) => (typeof val === "object" ? formatTime(val) : val)),
+    .transform((val: any) => (typeof val === "object" ? formatTime(val) : val)),
   config: z.object({
-    type: z.enum(["vlastni", "betonTeplice", "betonMimo"]),
-    thickness: z.number().min(8).max(16).optional(),
-    quality: z.string(),
+    type: z.enum(["vlastni", "betonTeplice", "betonMimo"], {
+      required_error: "Typ betonu je povinný",
+    }),
+    thickness: z
+      .number({ required_error: "Tloušťka betonu je povinná" })
+      .min(8, { message: "Tloušťka betonu musí být alespoň 8 cm" })
+      .max(16, { message: "Tloušťka betonu může být maximálně 16 cm" }),
+    quality: z.string({ required_error: "Kvalita betonu je povinná" }),
     height: z.number().optional(),
-    hose_length: z.number().max(100),
-    volume_height: z.number().max(10),
+    hose_length: z
+      .number({ required_error: "Délka hadice je povinná" })
+      .max(100, { message: "Délka hadice může být maximálně 100 m" }),
+    volume_height: z
+      .number({ required_error: "Výška objemu betonu je povinná" })
+      .max(10, { message: "Výška objemu betonu může být maximálně 10 m" }),
     description: z.string().max(100).optional(),
   }),
 });
@@ -71,10 +102,11 @@ const form = ref<OrderForm>({
   address_zip: "",
   address_country: "CZ",
   date: "",
-  time: "07:00",
+  time: { hours: 7, minutes: 0 },
   config: {
     type: "vlastni",
     quality: "",
+    thickness: 8,
     hose_length: 0,
     volume_height: 0,
   },
@@ -120,6 +152,7 @@ async function fetchAresData(ico: string) {
     const data = (await response.json()) as AresApiResponse;
 
     if (data) {
+      console.log({ data });
       form.value.customer_name = data.obchodniJmeno;
       form.value.address_street = data.sidlo.textovaAdresa;
       form.value.address_city = data.sidlo.nazevObce;
@@ -315,6 +348,8 @@ function formatTime(timeObj: {
 }
 
 const submitting = ref(false);
+const message = ref("");
+
 // Update the onSubmit function
 const onSubmit = async () => {
   try {
@@ -342,10 +377,18 @@ const onSubmit = async () => {
     });
 
     if (!response.ok) {
+      message.value = "Nastala chyba při odesílání objednávky";
+      console.log("Failed to submit order");
       throw new Error("Failed to submit order");
     }
 
     const result = await response.json();
+
+    // remember is true then save the customer detail in localstorage using vueuse localstorage
+    if (remember.value) {
+      localStorage.setItem("customer", JSON.stringify(form.value));
+    }
+
     console.log("Order submitted successfully:", result);
 
     if (result.orderId) {
@@ -363,10 +406,11 @@ const onSubmit = async () => {
         address_zip: "",
         address_country: "CZ",
         date: "",
-        time: "07:00",
+        time: { hours: 7, minutes: 0 },
         config: {
           type: "vlastni",
           quality: "",
+          thickness: 8,
           hose_length: 0,
           volume_height: 0,
         },
@@ -374,10 +418,9 @@ const onSubmit = async () => {
 
       currentStep.value = 1;
 
-      alert(
+      message.value =
         "Objednávka byla úspěšně odeslána. Váš objednací číslo je: #" +
-          result.orderId
-      );
+        result.orderId;
     }
   } catch (error) {
     console.error("Error submitting order:", error);
@@ -387,38 +430,95 @@ const onSubmit = async () => {
   }
 };
 
+watch(message, (newMessage: string) => {
+  if (newMessage) {
+    setTimeout(() => {
+      message.value = "";
+    }, 5000);
+  }
+});
+
+const map = ref([]);
+const loader = new Loader({
+  apiKey: import.meta.env.VITE_GOOGLE_MAPS_KEY,
+  version: "weekly",
+  language: "cs",
+  libraries: ["places"], // Explicitly specify the places library
+});
+
 // Initialize Google Maps Places Autocomplete
 onMounted(async () => {
-  const loader = new Loader({
-    apiKey: import.meta.env.VITE_GOOGLE_MAPS_KEY,
-    version: "weekly",
-    language: "cs",
-  });
+  try {
+    await loader
+      .load()
+      .then((google: any) => {
+        console.log({ google });
+        const input = document.getElementById(
+          "address-query"
+        ) as HTMLInputElement;
+        console.log({ input });
+        if (input) {
+          const autocomplete = new google.maps.places.Autocomplete(input, {
+            componentRestrictions: { country: "cz" },
+            fields: ["address_components", "formatted_address"],
+            types: ["address"], // Restrict to address suggestions only
+          });
+          console.log({ autocomplete });
 
-  const Places = await loader.importLibrary("places");
-  const input = document.getElementById("address-query") as HTMLInputElement;
-
-  if (input) {
-    const autocomplete = new Places.Autocomplete(input, {
-      componentRestrictions: { country: "cz" },
-      fields: ["address_components", "geometry", "icon", "name"],
-      strictBounds: false,
-    });
-
-    autocomplete.addListener("place_changed", () => {
-      const place = autocomplete.getPlace();
-      if (place.address_components) {
-        place.address_components.forEach((component: any) => {
-          if (component.types.includes("postal_code")) {
-            form.value.address_zip = component.long_name;
-          } else if (component.types.includes("locality")) {
-            form.value.address_city = component.long_name;
-          } else if (component.types.includes("administrative_area_level_1")) {
-            form.value.address_state = component.long_name;
-          }
-        });
-      }
-    });
+          autocomplete.addListener("place_changed", () => {
+            const place = autocomplete.getPlace();
+            if (place.address_components) {
+              console.log({ place: place.formatted_address });
+              // Update the form with selected address components
+              form.value.address_street = place.formatted_address || "";
+              place.address_components.forEach((component: any) => {
+                const type = component.types[0];
+                if (type === "postal_code") {
+                  form.value.address_zip = component.long_name;
+                } else if (type === "locality") {
+                  form.value.address_city = component.long_name;
+                } else if (type === "administrative_area_level_1") {
+                  form.value.address_state = component.long_name;
+                }
+              });
+            }
+          });
+        }
+      })
+      .catch((error: any) => {
+        console.log(error);
+      })
+      .then(function () {
+        // always executed
+      });
+    // await loader.load(); // Load the Google Maps JavaScript API
+    // const input = document.getElementById("address-query") as HTMLInputElement;
+    // if (input) {
+    //   const autocomplete = new google.maps.places.Autocomplete(input, {
+    //     componentRestrictions: { country: "cz" },
+    //     fields: ["address_components", "formatted_address"],
+    //     types: ["address"], // Restrict to address suggestions only
+    //   });
+    //   autocomplete.addListener("place_changed", () => {
+    //     const place = autocomplete.getPlace();
+    //     if (place.address_components) {
+    //       // Update the form with selected address components
+    //       form.value.address_street = place.formatted_address || "";
+    //       place.address_components.forEach((component) => {
+    //         const type = component.types[0];
+    //         if (type === "postal_code") {
+    //           form.value.address_zip = component.long_name;
+    //         } else if (type === "locality") {
+    //           form.value.address_city = component.long_name;
+    //         } else if (type === "administrative_area_level_1") {
+    //           form.value.address_state = component.long_name;
+    //         }
+    //       });
+    //     }
+    //   });
+    // }
+  } catch (error) {
+    console.error("Error loading Google Maps:", error);
   }
 });
 
@@ -431,8 +531,8 @@ declare function getOrderDates(): Promise<OrderDate[]>;
 </script>
 
 <template>
-  <div class="flex flex-col min-h-screen bg-zinc-700">
-    <div class="container mx-auto px-4 py-8 max-w-2xl">
+  <div class="flex flex-col bg-zinc-700 min-h-screen">
+    <div class="mx-auto px-4 py-8 max-w-2xl container">
       <!-- Progress bar -->
       <div class="mb-8">
         <div class="flex justify-between mb-2">
@@ -456,7 +556,7 @@ declare function getOrderDates(): Promise<OrderDate[]>;
             ></div>
           </div>
         </div>
-        <div class="flex justify-between text-sm text-zinc-300">
+        <div class="flex justify-between text-zinc-300 text-sm">
           <span v-for="step in steps" :key="step.id">{{ step.title }}</span>
         </div>
       </div>
@@ -464,11 +564,11 @@ declare function getOrderDates(): Promise<OrderDate[]>;
       <!-- Form content -->
       <form @submit.prevent="onSubmit" class="space-y-6">
         <!-- Step 1: Reservation -->
-        <div v-if="currentStep === 1">
-          <h2 class="text-2xl font-bold text-zinc-100 mb-6">Rezervace</h2>
+        <div v-show="currentStep === 1">
+          <h2 class="mb-6 font-bold text-zinc-100 text-2xl">Rezervace</h2>
 
           <div class="mb-6">
-            <label class="block text-zinc-300 text-sm font-bold mb-2">
+            <label class="block mb-2 font-bold text-zinc-300 text-sm">
               Datum rezervace
             </label>
             <DatePicker
@@ -491,7 +591,7 @@ declare function getOrderDates(): Promise<OrderDate[]>;
           </div>
 
           <div class="mb-6">
-            <label class="block text-zinc-300 text-sm font-bold mb-2">
+            <label class="block mb-2 font-bold text-zinc-300 text-sm">
               Čas příjezdu
             </label>
             <DatePicker
@@ -501,6 +601,7 @@ declare function getOrderDates(): Promise<OrderDate[]>;
               :minTime="{ hours: 6, minutes: 0 }"
               :maxTime="{ hours: 14, minutes: 15 }"
               class="w-full"
+              no-minutes-overlay
               required
               :minutesIncrement="15"
             />
@@ -511,16 +612,16 @@ declare function getOrderDates(): Promise<OrderDate[]>;
         </div>
 
         <!-- Step 2: Subject -->
-        <div v-if="currentStep === 2">
-          <h2 class="text-2xl font-bold text-zinc-100 mb-6">Subjekt</h2>
+        <div v-show="currentStep === 2">
+          <h2 class="mb-6 font-bold text-zinc-100 text-2xl">Subjekt</h2>
 
           <div class="mb-6">
-            <label class="block text-zinc-300 text-sm font-bold mb-2">
+            <label class="block mb-2 font-bold text-zinc-300 text-sm">
               Typ osoby
             </label>
             <select
               v-model="form.customer_type"
-              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+              class="bg-zinc-600 p-2.5 rounded-lg w-full text-zinc-100"
             >
               <option
                 v-for="type in personTypes"
@@ -539,13 +640,13 @@ declare function getOrderDates(): Promise<OrderDate[]>;
             v-if="['podnikatel', 'pravnicka'].includes(form.customer_type)"
             class="mb-6"
           >
-            <label class="block text-zinc-300 text-sm font-bold mb-2">
+            <label class="block mb-2 font-bold text-zinc-300 text-sm">
               IČO
             </label>
             <input
               v-model="form.customer_cid"
               type="text"
-              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+              class="bg-zinc-600 p-2.5 rounded-lg w-full text-zinc-100"
               maxlength="8"
               placeholder="12345678"
             />
@@ -555,11 +656,11 @@ declare function getOrderDates(): Promise<OrderDate[]>;
           </div>
 
           <div v-if="form.customer_type !== 'baracnik'" class="mb-6">
-            <label class="block text-zinc-300 text-sm font-bold mb-2">
+            <label class="block mb-2 font-bold text-zinc-300 text-sm">
               <input
                 type="checkbox"
                 v-model="form.customer_vat"
-                class="mr-2 rounded bg-zinc-600 text-yellow-600 focus:ring-yellow-500"
+                class="bg-zinc-600 mr-2 rounded focus:ring-yellow-500 text-yellow-600"
               />
               Plátce DPH
             </label>
@@ -569,13 +670,13 @@ declare function getOrderDates(): Promise<OrderDate[]>;
             v-if="form.customer_type !== 'baracnik' && form.customer_vat"
             class="mb-6"
           >
-            <label class="block text-zinc-300 text-sm font-bold mb-2">
+            <label class="block mb-2 font-bold text-zinc-300 text-sm">
               DIČ
             </label>
             <input
               v-model="form.customer_vat_number"
               type="text"
-              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+              class="bg-zinc-600 p-2.5 rounded-lg w-full text-zinc-100"
               minlength="8"
               maxlength="12"
               placeholder="CZ12345678"
@@ -589,7 +690,7 @@ declare function getOrderDates(): Promise<OrderDate[]>;
           </div>
 
           <div class="mb-6">
-            <label class="block text-zinc-300 text-sm font-bold mb-2">
+            <label class="block mb-2 font-bold text-zinc-300 text-sm">
               {{
                 form.customer_type === "pravnicka"
                   ? "Obchodní Jméno"
@@ -599,7 +700,7 @@ declare function getOrderDates(): Promise<OrderDate[]>;
             <input
               v-model="form.customer_name"
               type="text"
-              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+              class="bg-zinc-600 p-2.5 rounded-lg w-full text-zinc-100"
               minlength="3"
               maxlength="200"
               required
@@ -616,22 +717,22 @@ declare function getOrderDates(): Promise<OrderDate[]>;
         </div>
 
         <!-- Step 3: Persons -->
-        <div v-if="currentStep === 3">
-          <h2 class="text-2xl font-bold text-zinc-100 mb-6">Osoby</h2>
+        <div v-show="currentStep === 3">
+          <h2 class="mb-6 font-bold text-zinc-100 text-2xl">Osoby</h2>
 
           <!-- Responsible Person -->
           <div class="mb-8">
-            <h3 class="font-semibold text-zinc-200 mb-4">Odpovědná osoba</h3>
+            <h3 class="mb-4 font-semibold text-zinc-200">Odpovědná osoba</h3>
 
             <div class="space-y-4">
               <div>
-                <label class="block text-zinc-300 text-sm font-bold mb-2">
+                <label class="block mb-2 font-bold text-zinc-300 text-sm">
                   Jméno
                 </label>
                 <input
                   v-model="form.customer_name"
                   type="text"
-                  class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+                  class="bg-zinc-600 p-2.5 rounded-lg w-full text-zinc-100"
                   required
                 />
                 <span v-if="errors.customer_name" class="text-red-500 text-sm">
@@ -640,13 +741,13 @@ declare function getOrderDates(): Promise<OrderDate[]>;
               </div>
 
               <div>
-                <label class="block text-zinc-300 text-sm font-bold mb-2">
+                <label class="block mb-2 font-bold text-zinc-300 text-sm">
                   Telefon
                 </label>
                 <input
                   v-model="form.customer_phone"
                   type="tel"
-                  class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+                  class="bg-zinc-600 p-2.5 rounded-lg w-full text-zinc-100"
                   required
                   placeholder="+420 123 456 789"
                 />
@@ -656,13 +757,13 @@ declare function getOrderDates(): Promise<OrderDate[]>;
               </div>
 
               <div>
-                <label class="block text-zinc-300 text-sm font-bold mb-2">
+                <label class="block mb-2 font-bold text-zinc-300 text-sm">
                   Email
                 </label>
                 <input
                   v-model="form.customer_email"
                   type="email"
-                  class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+                  class="bg-zinc-600 p-2.5 rounded-lg w-full text-zinc-100"
                   required
                   placeholder="email@example.com"
                 />
@@ -679,7 +780,7 @@ declare function getOrderDates(): Promise<OrderDate[]>;
               <input
                 type="checkbox"
                 v-model="contactSameAsResponsible"
-                class="mr-2 rounded bg-zinc-600 text-yellow-600 focus:ring-yellow-500"
+                class="bg-zinc-600 mr-2 rounded focus:ring-yellow-500 text-yellow-600"
               />
               <span>Kontaktní osoba je stejná jako odpovědná</span>
             </label>
@@ -688,7 +789,7 @@ declare function getOrderDates(): Promise<OrderDate[]>;
               <input
                 type="checkbox"
                 v-model="confirmation"
-                class="mr-2 rounded bg-zinc-600 text-yellow-600 focus:ring-yellow-500"
+                class="bg-zinc-600 mr-2 rounded focus:ring-yellow-500 text-yellow-600"
               />
               <span>Potvrzuji, že jsem oprávněn jednat jménem subjektu</span>
             </label>
@@ -696,17 +797,17 @@ declare function getOrderDates(): Promise<OrderDate[]>;
 
           <!-- Contact Person -->
           <div v-show="!contactSameAsResponsible" class="mb-6">
-            <h3 class="font-semibold text-zinc-200 mb-4">Kontaktní osoba</h3>
+            <h3 class="mb-4 font-semibold text-zinc-200">Kontaktní osoba</h3>
 
             <div class="space-y-4">
               <div>
-                <label class="block text-zinc-300 text-sm font-bold mb-2">
+                <label class="block mb-2 font-bold text-zinc-300 text-sm">
                   Jméno
                 </label>
                 <input
                   v-model="form.contact_name"
                   type="text"
-                  class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+                  class="bg-zinc-600 p-2.5 rounded-lg w-full text-zinc-100"
                   :required="!contactSameAsResponsible"
                 />
                 <span v-if="errors.contact_name" class="text-red-500 text-sm">
@@ -715,13 +816,13 @@ declare function getOrderDates(): Promise<OrderDate[]>;
               </div>
 
               <div>
-                <label class="block text-zinc-300 text-sm font-bold mb-2">
+                <label class="block mb-2 font-bold text-zinc-300 text-sm">
                   Telefon
                 </label>
                 <input
                   v-model="form.contact_phone"
                   type="tel"
-                  class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+                  class="bg-zinc-600 p-2.5 rounded-lg w-full text-zinc-100"
                   :required="!contactSameAsResponsible"
                   placeholder="+420 123 456 789"
                 />
@@ -731,13 +832,13 @@ declare function getOrderDates(): Promise<OrderDate[]>;
               </div>
 
               <div>
-                <label class="block text-zinc-300 text-sm font-bold mb-2">
+                <label class="block mb-2 font-bold text-zinc-300 text-sm">
                   Email
                 </label>
                 <input
                   v-model="form.contact_email"
                   type="email"
-                  class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+                  class="bg-zinc-600 p-2.5 rounded-lg w-full text-zinc-100"
                   :required="!contactSameAsResponsible"
                   placeholder="email@example.com"
                 />
@@ -750,11 +851,11 @@ declare function getOrderDates(): Promise<OrderDate[]>;
         </div>
 
         <!-- Step 4: Address -->
-        <div v-if="currentStep === 4">
-          <h2 class="text-2xl font-bold text-zinc-100 mb-6">Adresa</h2>
+        <div v-show="currentStep === 4">
+          <h2 class="mb-6 font-bold text-zinc-100 text-2xl">Adresa</h2>
 
           <div class="mb-6">
-            <label class="block text-zinc-300 text-sm font-bold mb-2">
+            <label class="block mb-2 font-bold text-zinc-300 text-sm">
               Místo přistavění pumpy
             </label>
             <div class="space-y-2">
@@ -767,7 +868,7 @@ declare function getOrderDates(): Promise<OrderDate[]>;
                   type="radio"
                   v-model="form.address_type"
                   :value="type.value"
-                  class="mr-2 rounded-full bg-zinc-600 text-yellow-600 focus:ring-yellow-500"
+                  class="bg-zinc-600 mr-2 rounded-full focus:ring-yellow-500 text-yellow-600"
                 />
                 <span>{{ type.label }}</span>
               </label>
@@ -777,46 +878,46 @@ declare function getOrderDates(): Promise<OrderDate[]>;
             </span>
           </div>
 
-          <div v-if="form.address_type === 'existing'" class="mb-6">
-            <label class="block text-zinc-300 text-sm font-bold mb-2">
+          <div v-show="form.address_type === 'existing'" class="mb-6">
+            <label class="block mb-2 font-bold text-zinc-300 text-sm">
               Adresa
             </label>
             <input
               id="address-query"
               v-model="addressQuery"
               type="search"
-              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+              class="bg-zinc-600 p-2.5 rounded-lg w-full text-zinc-100"
               placeholder="Vyhledat adresu..."
             />
           </div>
 
-          <div v-else-if="form.address_type === 'construction'" class="mb-6">
-            <label class="block text-zinc-300 text-sm font-bold mb-2">
+          <div v-show="form.address_type === 'construction'" class="mb-6">
+            <label class="block mb-2 font-bold text-zinc-300 text-sm">
               Číslo pozemku
             </label>
             <input
               v-model="form.address_note"
               type="text"
-              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+              class="bg-zinc-600 p-2.5 rounded-lg w-full text-zinc-100"
               placeholder="Číslo pozemku"
               required
             />
             <span v-if="errors.address_note" class="text-red-500 text-sm">
               {{ errors.address_note }}
             </span>
-            <p class="mt-1 text-sm text-zinc-400">
+            <p class="mt-1 text-zinc-400 text-sm">
               Nejbližší existující adresa
             </p>
           </div>
 
           <div class="mb-6">
-            <label class="block text-zinc-300 text-sm font-bold mb-2">
+            <label class="block mb-2 font-bold text-zinc-300 text-sm">
               PSČ
             </label>
             <input
               v-model="form.address_zip"
               type="text"
-              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+              class="bg-zinc-600 p-2.5 rounded-lg w-full text-zinc-100"
               placeholder="123 00"
               required
             />
@@ -826,13 +927,13 @@ declare function getOrderDates(): Promise<OrderDate[]>;
           </div>
 
           <div class="mb-6">
-            <label class="block text-zinc-300 text-sm font-bold mb-2">
+            <label class="block mb-2 font-bold text-zinc-300 text-sm">
               Kraj
             </label>
             <input
               v-model="form.address_state"
               type="text"
-              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+              class="bg-zinc-600 p-2.5 rounded-lg w-full text-zinc-100"
               placeholder="Středočeský"
               required
             />
@@ -842,13 +943,13 @@ declare function getOrderDates(): Promise<OrderDate[]>;
           </div>
 
           <div class="mb-6">
-            <label class="block text-zinc-300 text-sm font-bold mb-2">
+            <label class="block mb-2 font-bold text-zinc-300 text-sm">
               Město
             </label>
             <input
               v-model="form.address_city"
               type="text"
-              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+              class="bg-zinc-600 p-2.5 rounded-lg w-full text-zinc-100"
               placeholder="Město"
               required
             />
@@ -858,12 +959,12 @@ declare function getOrderDates(): Promise<OrderDate[]>;
           </div>
 
           <div class="mb-6">
-            <label class="block text-zinc-300 text-sm font-bold mb-2">
+            <label class="block mb-2 font-bold text-zinc-300 text-sm">
               Poznámka
             </label>
             <textarea
               v-model="form.address_note"
-              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+              class="bg-zinc-600 p-2.5 rounded-lg w-full text-zinc-100"
               placeholder="Poznámka k adrese"
               rows="3"
             ></textarea>
@@ -874,16 +975,16 @@ declare function getOrderDates(): Promise<OrderDate[]>;
         </div>
 
         <!-- Step 5: Concrete -->
-        <div v-if="currentStep === 5">
-          <h2 class="text-2xl font-bold text-zinc-100 mb-6">Beton</h2>
+        <div v-show="currentStep === 5">
+          <h2 class="mb-6 font-bold text-zinc-100 text-2xl">Beton</h2>
 
           <div class="mb-6">
-            <label class="block text-zinc-300 text-sm font-bold mb-2">
+            <label class="block mb-2 font-bold text-zinc-300 text-sm">
               Beton
             </label>
             <select
               v-model="form.config.type"
-              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+              class="bg-zinc-600 p-2.5 rounded-lg w-full text-zinc-100"
               required
             >
               <option
@@ -900,15 +1001,14 @@ declare function getOrderDates(): Promise<OrderDate[]>;
           </div>
 
           <div class="mb-6">
-            <label class="block text-zinc-300 text-sm font-bold mb-2">
+            <label class="block mb-2 font-bold text-zinc-300 text-sm">
               Kvalita/Typ
             </label>
             <input
               v-model="form.config.quality"
               type="text"
-              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+              class="bg-zinc-600 p-2.5 rounded-lg w-full text-zinc-100"
               placeholder="Zadejte kvalitu/typ betonu"
-              required
             />
             <span v-if="errors['config.quality']" class="text-red-500 text-sm">
               {{ errors["config.quality"] }}
@@ -916,16 +1016,17 @@ declare function getOrderDates(): Promise<OrderDate[]>;
           </div>
 
           <div class="mb-6">
-            <label class="block text-zinc-300 text-sm font-bold mb-2">
+            <label class="block mb-2 font-bold text-zinc-300 text-sm">
               Tloušťka kameniva (max. 16mm)
             </label>
             <select
               v-model="form.config.thickness"
-              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+              class="bg-zinc-600 p-2.5 rounded-lg w-full text-zinc-100"
             >
               <option :value="8">4/8</option>
               <option :value="16">8/16</option>
             </select>
+            {{ errors }}
             <span
               v-if="errors['config.thickness']"
               class="text-red-500 text-sm"
@@ -935,36 +1036,37 @@ declare function getOrderDates(): Promise<OrderDate[]>;
           </div>
 
           <div class="mb-6">
-            <label class="block text-zinc-300 text-sm font-bold mb-2">
+            <label class="block mb-2 font-bold text-zinc-300 text-sm">
               Délka hadic
             </label>
             <input
               v-model.number="form.config.hose_length"
               type="number"
-              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+              class="bg-zinc-600 p-2.5 rounded-lg w-full text-zinc-100"
               placeholder="bm"
               max="100"
               required
             />
+            {{ errors }}
             <span
               v-if="errors['config.hose_length']"
               class="text-red-500 text-sm"
             >
               {{ errors["config.hose_length"] }}
             </span>
-            <p class="mt-1 text-sm text-zinc-400">
+            <p class="mt-1 text-zinc-400 text-sm">
               Max. 100m, více pouze po dohodě
             </p>
           </div>
 
           <div class="mb-6">
-            <label class="block text-zinc-300 text-sm font-bold mb-2">
+            <label class="block mb-2 font-bold text-zinc-300 text-sm">
               Do jaké výšky budeme beton čerpat
             </label>
             <input
               v-model.number="form.config.volume_height"
               type="number"
-              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+              class="bg-zinc-600 p-2.5 rounded-lg w-full text-zinc-100"
               placeholder="m"
               max="10"
               required
@@ -978,12 +1080,12 @@ declare function getOrderDates(): Promise<OrderDate[]>;
           </div>
 
           <div class="mb-6">
-            <label class="block text-zinc-300 text-sm font-bold mb-2">
+            <label class="block mb-2 font-bold text-zinc-300 text-sm">
               Stručný popis práce
             </label>
             <textarea
               v-model="form.config.description"
-              class="w-full bg-zinc-600 text-zinc-100 rounded-lg p-2.5"
+              class="bg-zinc-600 p-2.5 rounded-lg w-full text-zinc-100"
               placeholder="Co se bude dělat (max 100 znaků)"
               maxlength="100"
               rows="3"
@@ -1001,7 +1103,7 @@ declare function getOrderDates(): Promise<OrderDate[]>;
               <input
                 type="checkbox"
                 v-model="remember"
-                class="mr-2 rounded bg-zinc-600 text-yellow-600 focus:ring-yellow-500"
+                class="bg-zinc-600 mr-2 rounded focus:ring-yellow-500 text-yellow-600"
               />
               <span>Zapamatovat pro příště</span>
             </label>
@@ -1014,7 +1116,7 @@ declare function getOrderDates(): Promise<OrderDate[]>;
             v-if="currentStep > 1"
             @click="prevStep"
             type="button"
-            class="px-6 py-2 bg-zinc-600 text-zinc-100 rounded-lg hover:bg-zinc-500"
+            class="bg-zinc-600 hover:bg-zinc-500 px-6 py-2 rounded-lg text-zinc-100"
           >
             Zpět
           </button>
@@ -1022,7 +1124,7 @@ declare function getOrderDates(): Promise<OrderDate[]>;
             v-if="currentStep < steps.length"
             @click="nextStep"
             type="button"
-            class="px-6 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-500"
+            class="bg-yellow-600 hover:bg-yellow-500 px-6 py-2 rounded-lg text-white"
           >
             Další
           </button>
@@ -1038,6 +1140,12 @@ declare function getOrderDates(): Promise<OrderDate[]>;
           >
             {{ submitting ? "Odesílání..." : "Odeslat" }}
           </button>
+        </div>
+
+        <div v-if="message" class="bg-zinc-600 mt-8 p-4 rounded-lg text-center">
+          <div class="text-zinc-300">
+            {{ message }}
+          </div>
         </div>
       </form>
     </div>
