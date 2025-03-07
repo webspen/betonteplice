@@ -62,7 +62,7 @@ export default {
             }
 
             // Protected routes - require authentication
-            if (['/api/orders', '/api/orders/dates', '/api/orders/status'].some(path => url.pathname === path)) {
+            if (['/api/orders', '/api/orders/status'].some(path => url.pathname === path)) {
                 await verifyAuth(request, env);
             }
 
