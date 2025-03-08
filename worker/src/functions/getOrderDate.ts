@@ -6,11 +6,12 @@ export const getOrderDatesHandler = async (event: any) => {
 
         // Query to get all dates with their status where date is in the future
         const query = `
-            SELECT 
+            SELECT
                 date::date as date,
                 status
-            FROM orders 
+            FROM orders
             WHERE date >= CURRENT_DATE
+            and (status = 'pending' or status = 'confirmed')
             ORDER BY date ASC
         `;
 
@@ -41,4 +42,4 @@ export const getOrderDatesHandler = async (event: any) => {
             })
         };
     }
-}; 
+};

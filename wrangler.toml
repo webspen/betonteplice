@@ -24,6 +24,8 @@ head_sampling_rate = 1 # optional. default = 1.
 # wrangler secret put GMAIL_CLIENT_SECRET
 # wrangler secret put GMAIL_REFRESH_TOKEN
 # wrangler secret put JWT_SECRET
+# wrangler secret put VITE_ARES_URL
+
 
 [build]
 command = "bun run build:worker"
@@ -43,3 +45,4 @@ command = "bun run build:worker"
 # - GMAIL_CLIENT_SECRET
 # - GMAIL_REFRESH_TOKEN
 # - JWT_SECRET
+# - VITE_ARES_URL

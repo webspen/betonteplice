@@ -1,35 +1,12 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { API_BASE_URL } from "@/config";
-// import RequestSection from "@/components/admin/RequestSection.vue";
-// import DatePicker from "@vuepic/vue-datepicker";
-// import "@vuepic/vue-datepicker/dist/main.css";
-// import { useRouter } from "vue-router";
+import { t } from "@/i18n";
 
-// Sample data (you can replace with real data)
-// const requests = useAsyncState<UserRequest[]>(async () => {
-//     // await new Promise(resolve => setTimeout(resolve, 1000)) // Wait for 2 seconds
-//     return fakeData.requests
-// }, [])
-
-// const waitingRequests = computed(() =>
-//   requests.state.value.filter((req) => req.status === "pending")
-// );
-// const acceptedRequests = computed(() =>
-//   requests.state.value.filter((req) => req.status === "accepted")
-// );
-// const rejectedRequests = computed(() =>
-//   requests.state.value.filter((req) => req.status === "rejected")
-// );
-// const canceledRequests = computed(() =>
-//   requests.state.value.filter((req) => req.status === "cancelled")
-// );
-
-// const router = useRouter();
 const isAuthenticated = ref(false);
-const email = ref("");
-const password = ref("");
 const loginError = ref("");
+const password = ref("");
+const email = ref("");
 
 const orders = ref<any[]>([]);
 const currentPage = ref(1);
@@ -62,7 +39,8 @@ const handleLogin = async () => {
     isAuthenticated.value = true;
     loadOrders();
   } catch (error) {
-    loginError.value = "Invalid credentials";
+    loginError.value = t("loginError");
+    console.error("Error logging in:", error);
   }
 };
 
@@ -110,11 +88,11 @@ const confirmStatusUpdate = async (
 ) => {
   const action =
     status === "accepted"
-      ? "accept"
+      ? t("accept")
       : status === "rejected"
-      ? "reject"
-      : "cancel";
-  if (confirm(`Are you sure you want to ${action} this order?`)) {
+      ? t("reject")
+      : t("cancel");
+  if (confirm(t("areYouSure") + " " + action + "?")) {
     try {
       const response = await fetch(`${API_BASE_URL}/orders/status`, {
         method: "PUT",
@@ -127,13 +105,13 @@ const confirmStatusUpdate = async (
 
       if (response.ok) {
         await loadOrders();
-        alert("Order status updated successfully");
+        alert(t("orderStatusUpdated"));
       } else {
-        alert("Failed to update order status");
+        alert(t("errorUpdatingOrderStatus"));
       }
     } catch (error) {
       console.error("Error updating order status:", error);
-      alert("Error updating order status");
+      alert(t("errorUpdatingOrderStatus"));
     }
   }
 };
@@ -157,58 +135,66 @@ onMounted(() => {
     loadOrders();
   }
 });
+
+const filteredOrders = computed(() => {
+  // Show paginated orders
+  return orders.value.slice(
+    (currentPage.value - 1) * itemsPerPage,
+    currentPage.value * itemsPerPage
+  );
+});
 </script>
 
 <template>
   <div v-if="!isAuthenticated" class="login-container">
     <div class="login-box">
-      <h2>Admin Login</h2>
+      <h2>{{ t("adminLogin") }}</h2>
       <form @submit.prevent="handleLogin" class="login-form">
         <div class="form-group">
-          <label>Email:</label>
+          <label>{{ t("email") }}</label>
           <input type="email" v-model="email" required />
         </div>
         <div class="form-group">
-          <label>Password:</label>
+          <label>{{ t("password") }}</label>
           <input type="password" v-model="password" required />
         </div>
-        <button type="submit">Login</button>
+        <button type="submit">{{ t("login") }}</button>
         <p v-if="loginError" class="error">{{ loginError }}</p>
       </form>
     </div>
   </div>
 
   <div v-else class="admin-container">
-    <h1>Orders Management</h1>
+    <h1>{{ t("title") }}</h1>
 
     <div class="filters">
       <select v-model="statusFilter">
-        <option value="">All Status</option>
-        <option value="pending">Pending</option>
-        <option value="accepted">Accepted</option>
-        <option value="rejected">Rejected</option>
-        <option value="cancelled">Cancelled</option>
+        <option value="">{{ t("allStatus") }}</option>
+        <option value="pending">{{ t("pending") }}</option>
+        <option value="accepted">{{ t("accepted") }}</option>
+        <option value="rejected">{{ t("rejected") }}</option>
+        <option value="cancelled">{{ t("cancelled") }}</option>
       </select>
 
-      <input type="date" v-model="dateFrom" placeholder="Date From" />
-      <input type="date" v-model="dateTo" placeholder="Date To" />
-      <button @click="loadOrders">Apply Filters</button>
+      <input type="date" v-model="dateFrom" :placeholder="t('dateFrom')" />
+      <input type="date" v-model="dateTo" :placeholder="t('dateTo')" />
+      <button @click="loadOrders">{{ t("applyFilters") }}</button>
     </div>
 
     <table class="orders-table">
       <thead>
         <tr>
-          <th>Date</th>
-          <th>Customer Name</th>
-          <th>Phone</th>
-          <th>Email</th>
-          <th>Address</th>
-          <th>Status</th>
-          <th>Actions</th>
+          <th>{{ t("date") }}</th>
+          <th>{{ t("customerName") }}</th>
+          <th>{{ t("phone") }}</th>
+          <th>{{ t("email") }}</th>
+          <th>{{ t("address") }}</th>
+          <th>{{ t("status") }}</th>
+          <th>{{ t("actions") }}</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="order in orders" :key="order.id">
+        <tr v-for="order in filteredOrders" :key="order.id">
           <td>{{ formatDate(order.date) }}</td>
           <td>{{ order.customer_name }}</td>
           <td>{{ order.customer_phone }}</td>
@@ -221,13 +207,13 @@ onMounted(() => {
                 @click="confirmStatusUpdate(order.id, 'accepted')"
                 class="accept-btn"
               >
-                Accept
+                {{ t("acceptOrder") }}
               </button>
               <button
                 @click="confirmStatusUpdate(order.id, 'rejected')"
                 class="reject-btn"
               >
-                Reject
+                {{ t("rejectOrder") }}
               </button>
             </div>
             <div class="action-buttons" v-if="order.status === 'accepted'">
@@ -235,7 +221,7 @@ onMounted(() => {
                 @click="confirmStatusUpdate(order.id, 'cancelled')"
                 class="reject-btn"
               >
-                Cancel
+                {{ t("cancelOrder") }}
               </button>
             </div>
           </td>
@@ -247,15 +233,19 @@ onMounted(() => {
       <button
         :disabled="currentPage === 1"
         @click="changePage(currentPage - 1)"
+        class="pagination-button"
       >
-        Previous
+        {{ t("previous") }}
       </button>
-      <span>Page {{ currentPage }} of {{ totalPages }}</span>
+      <span
+        >{{ t("page") }} {{ currentPage }} {{ t("of") }} {{ totalPages }}</span
+      >
       <button
         :disabled="currentPage === totalPages"
         @click="changePage(currentPage + 1)"
+        class="pagination-button"
       >
-        Next
+        {{ t("next") }}
       </button>
     </div>
   </div>
@@ -351,5 +341,14 @@ onMounted(() => {
   justify-content: center;
   gap: 1rem;
   margin-top: 1rem;
+}
+
+.pagination-button {
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
 }
 </style>

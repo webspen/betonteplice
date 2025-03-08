@@ -3,10 +3,10 @@ import { sendEmail } from '../services/email';
 async function testEmail() {
     try {
         const env = {
-            GMAIL_USER: '',
-            GMAIL_CLIENT_ID: '',
-            GMAIL_CLIENT_SECRET: '',
-            GMAIL_REFRESH_TOKEN: ''
+            GMAIL_USER: 'betonteplice.cz@gmail.com',
+            GMAIL_CLIENT_ID: '1014582306436-ol5a1c87jh74tgq0d36d1v82fhbkudi9.apps.googleusercontent.com',
+            GMAIL_CLIENT_SECRET: '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',
+            GMAIL_REFRESH_TOKEN: '1//042k1vnYsyQ8PCgYIARAAGAQSNwF-L9IrlnbxrNkdAbQU6q3jI_rJlO21MOvXWkZg507VJp4Klmf5Oykke8A2YKp3FYBnmjUaweg'
         };
 
         console.log('Using email configuration:', {

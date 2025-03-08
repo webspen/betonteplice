@@ -20,12 +20,10 @@ const orderSchema = z.object({
     .max(200, { message: "Jméno může být maximálně 200 znaků dlouhé" }),
   customer_vat: z.boolean().default(false),
   customer_vat_number: z.string().optional(),
-  customer_phone: z
-    .string()
-    .min(9, { message: "Telefonní číslo musí být alespoň 9 číslic dlouhé" })
-    .max(15, {
-      message: "Telefonní číslo může být maximálně 15 číslic dlouhé",
-    }),
+  customer_phone: z.string().regex(/^[\+\d\s]{10,15}$/, {
+    message:
+      "Telefonní číslo musí být 10-15 znaků a může obsahovat číslice, mezery a znak +",
+  }),
   customer_email: z
     .string()
     .email({ message: "Neplatná emailová adresa" })
@@ -139,7 +137,11 @@ const validateField = async (field: string, value: any) => {
       schema = orderSchema.pick({ config: true });
       await schema.parseAsync({ config: { [lastPath]: value } });
     } else {
-      schema = orderSchema.pick({ [field]: true });
+      // Fix: Create a dynamic object that satisfies Zod's pick requirements
+      const pickObject = {} as Record<keyof OrderForm, true>;
+      // Only set the field we're validating
+      pickObject[field as keyof OrderForm] = true;
+      schema = orderSchema.pick(pickObject);
       await schema.parseAsync({ [field]: value });
     }
 
@@ -229,10 +231,10 @@ const validateCurrentStep = async () => {
         break;
     }
     return true;
-  } catch (error) {
+  } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       errors.value = error.errors.reduce(
-        (acc: Record<string, string>, curr) => {
+        (acc: Record<string, string>, curr: z.ZodIssue) => {
           acc[curr.path.join(".")] = curr.message;
           return acc;
         },
@@ -333,16 +335,16 @@ async function fetchAresData(ico: string) {
     const { pravniForma, sidlo, obchodniJmeno } = await ares(ico);
     const psc = sidlo.psc.toString();
     if (Number(pravniForma) > 100 && Number(pravniForma) < 108) {
-      form.customer_type = "podnikatel";
-      form.contact_name = obchodniJmeno;
+      form.value.customer_type = "podnikatel";
+      form.value.contact_name = obchodniJmeno;
     } else {
-      form.customer_type = "pravnicka";
+      form.value.customer_type = "pravnicka";
     }
 
-    form.address_street = sidlo.textovaAdresa;
-    form.address_city = sidlo.nazevObce;
-    form.address_zip = `${psc.slice(0, 3)} ${psc.slice(3)}`;
-    form.customer_name = obchodniJmeno;
+    form.value.address_street = sidlo.textovaAdresa;
+    form.value.address_city = sidlo.nazevObce;
+    form.value.address_zip = `${psc.slice(0, 3)} ${psc.slice(3)}`;
+    form.value.customer_name = obchodniJmeno;
   } catch (error) {
     console.error("Error fetching ARES data:", error);
   }
@@ -351,9 +353,13 @@ async function fetchAresData(ico: string) {
 // Watch for ICO changes
 watchDebounced(
   () => form.value,
-  (newForm: OrderForm) => {
+  (newForm: OrderForm, oldValue: OrderForm) => {
     console.log({ newForm });
-    if (newForm.customer_cid && newForm.customer_cid.length === 8) {
+    if (
+      newForm.customer_cid !== oldValue.customer_cid &&
+      newForm.customer_cid &&
+      newForm.customer_cid.length === 8
+    ) {
       fetchAresData(newForm.customer_cid);
     }
   },
@@ -408,7 +414,7 @@ const markers = computed<DatePickerMarker[]>(() =>
     type: "line" as const,
     tooltip: [
       {
-        text: `Status: ${order.status}`,
+        text: order.status === "pending" ? "Rezervováno" : "Obsazeno",
       },
     ],
   }))
@@ -589,15 +595,14 @@ const onSubmit = async () => {
       currentStep.value = 1;
 
       message.value =
-        "Objednávka byla úspěšně odeslána. Váš objednací číslo je: #" +
-        result.orderId;
+        "Objednávka byla úspěšně odeslána. Váš číslo je: #" + result.orderId;
     }
   } catch (error: unknown) {
     console.error("Error submitting order:", error);
 
     if (error instanceof z.ZodError) {
       errors.value = error.errors.reduce(
-        (acc: Record<string, string>, curr) => {
+        (acc: Record<string, string>, curr: z.ZodIssue) => {
           acc[curr.path.join(".")] = curr.message;
           return acc;
         },
@@ -700,11 +705,11 @@ onMounted(async () => {
               form.value.address_street = place.formatted_address || "";
               place.address_components.forEach((component: any) => {
                 const type = component.types[0];
-                if (type === "postal_code") {
+                if (type.includes("postal_code")) {
                   form.value.address_zip = component.long_name;
-                } else if (type === "locality") {
+                } else if (type.includes("locality")) {
                   form.value.address_city = component.long_name;
-                } else if (type === "administrative_area_level_1") {
+                } else if (type.includes("administrative_area_level_1")) {
                   form.value.address_state = component.long_name;
                 }
               });
@@ -812,7 +817,7 @@ const getFieldClasses = (fieldName: string) => {
             />
             <span
               v-if="touchedFields.has('date') && errors.date"
-              class="text-red-500 text-xs mt-1 block"
+              class="block mt-1 text-red-500 text-xs"
             >
               {{ errors.date }}
             </span>
@@ -836,7 +841,7 @@ const getFieldClasses = (fieldName: string) => {
             />
             <span
               v-if="touchedFields.has('time') && errors.time"
-              class="text-red-500 text-xs mt-1 block"
+              class="block mt-1 text-red-500 text-xs"
             >
               {{ errors.time }}
             </span>
@@ -866,7 +871,7 @@ const getFieldClasses = (fieldName: string) => {
             </select>
             <span
               v-if="touchedFields.has('customer_type') && errors.customer_type"
-              class="text-red-500 text-xs mt-1 block"
+              class="block mt-1 text-red-500 text-xs"
             >
               {{ errors.customer_type }}
             </span>
@@ -890,7 +895,7 @@ const getFieldClasses = (fieldName: string) => {
             />
             <span
               v-if="touchedFields.has('customer_cid') && errors.customer_cid"
-              class="text-red-500 text-xs mt-1 block"
+              class="block mt-1 text-red-500 text-xs"
             >
               {{ errors.customer_cid }}
             </span>
@@ -930,7 +935,7 @@ const getFieldClasses = (fieldName: string) => {
                 touchedFields.has('customer_vat_number') &&
                 errors.customer_vat_number
               "
-              class="text-red-500 text-xs mt-1 block"
+              class="block mt-1 text-red-500 text-xs"
             >
               {{ errors.customer_vat_number }}
             </span>
@@ -961,7 +966,7 @@ const getFieldClasses = (fieldName: string) => {
             />
             <span
               v-if="touchedFields.has('customer_name') && errors.customer_name"
-              class="text-red-500 text-xs mt-1 block"
+              class="block mt-1 text-red-500 text-xs"
             >
               {{ errors.customer_name }}
             </span>
@@ -993,7 +998,7 @@ const getFieldClasses = (fieldName: string) => {
                   v-if="
                     touchedFields.has('customer_name') && errors.customer_name
                   "
-                  class="text-red-500 text-xs mt-1 block"
+                  class="block mt-1 text-red-500 text-xs"
                 >
                   {{ errors.customer_name }}
                 </span>
@@ -1016,7 +1021,7 @@ const getFieldClasses = (fieldName: string) => {
                   v-if="
                     touchedFields.has('customer_phone') && errors.customer_phone
                   "
-                  class="text-red-500 text-xs mt-1 block"
+                  class="block mt-1 text-red-500 text-xs"
                 >
                   {{ errors.customer_phone }}
                 </span>
@@ -1039,7 +1044,7 @@ const getFieldClasses = (fieldName: string) => {
                   v-if="
                     touchedFields.has('customer_email') && errors.customer_email
                   "
-                  class="text-red-500 text-xs mt-1 block"
+                  class="block mt-1 text-red-500 text-xs"
                 >
                   {{ errors.customer_email }}
                 </span>
@@ -1066,7 +1071,7 @@ const getFieldClasses = (fieldName: string) => {
               />
               <span>Potvrzuji, že jsem oprávněn jednat jménem subjektu</span>
             </label>
-            <span v-if="errors.confirmation" class="text-red-500 text-xs block">
+            <span v-if="errors.confirmation" class="block text-red-500 text-xs">
               {{ errors.confirmation }}
             </span>
           </div>
@@ -1092,7 +1097,7 @@ const getFieldClasses = (fieldName: string) => {
                   v-if="
                     touchedFields.has('contact_name') && errors.contact_name
                   "
-                  class="text-red-500 text-xs mt-1 block"
+                  class="block mt-1 text-red-500 text-xs"
                 >
                   {{ errors.contact_name }}
                 </span>
@@ -1115,7 +1120,7 @@ const getFieldClasses = (fieldName: string) => {
                   v-if="
                     touchedFields.has('contact_phone') && errors.contact_phone
                   "
-                  class="text-red-500 text-xs mt-1 block"
+                  class="block mt-1 text-red-500 text-xs"
                 >
                   {{ errors.contact_phone }}
                 </span>
@@ -1138,7 +1143,7 @@ const getFieldClasses = (fieldName: string) => {
                   v-if="
                     touchedFields.has('contact_email') && errors.contact_email
                   "
-                  class="text-red-500 text-xs mt-1 block"
+                  class="block mt-1 text-red-500 text-xs"
                 >
                   {{ errors.contact_email }}
                 </span>
@@ -1173,7 +1178,7 @@ const getFieldClasses = (fieldName: string) => {
             </div>
             <span
               v-if="touchedFields.has('address_type') && errors.address_type"
-              class="text-red-500 text-xs mt-1 block"
+              class="block mt-1 text-red-500 text-xs"
             >
               {{ errors.address_type }}
             </span>
@@ -1207,7 +1212,7 @@ const getFieldClasses = (fieldName: string) => {
             />
             <span
               v-if="touchedFields.has('address_note') && errors.address_note"
-              class="text-red-500 text-xs mt-1 block"
+              class="block mt-1 text-red-500 text-xs"
             >
               {{ errors.address_note }}
             </span>
@@ -1231,7 +1236,7 @@ const getFieldClasses = (fieldName: string) => {
             />
             <span
               v-if="touchedFields.has('address_zip') && errors.address_zip"
-              class="text-red-500 text-xs mt-1 block"
+              class="block mt-1 text-red-500 text-xs"
             >
               {{ errors.address_zip }}
             </span>
@@ -1252,7 +1257,7 @@ const getFieldClasses = (fieldName: string) => {
             />
             <span
               v-if="touchedFields.has('address_state') && errors.address_state"
-              class="text-red-500 text-xs mt-1 block"
+              class="block mt-1 text-red-500 text-xs"
             >
               {{ errors.address_state }}
             </span>
@@ -1273,7 +1278,7 @@ const getFieldClasses = (fieldName: string) => {
             />
             <span
               v-if="touchedFields.has('address_city') && errors.address_city"
-              class="text-red-500 text-xs mt-1 block"
+              class="block mt-1 text-red-500 text-xs"
             >
               {{ errors.address_city }}
             </span>
@@ -1293,7 +1298,7 @@ const getFieldClasses = (fieldName: string) => {
             ></textarea>
             <span
               v-if="touchedFields.has('address_note') && errors.address_note"
-              class="text-red-500 text-xs mt-1 block"
+              class="block mt-1 text-red-500 text-xs"
             >
               {{ errors.address_note }}
             </span>
@@ -1324,7 +1329,7 @@ const getFieldClasses = (fieldName: string) => {
             </select>
             <span
               v-if="touchedFields.has('config.type') && errors['config.type']"
-              class="text-red-500 text-xs mt-1 block"
+              class="block mt-1 text-red-500 text-xs"
             >
               {{ errors["config.type"] }}
             </span>
@@ -1346,7 +1351,7 @@ const getFieldClasses = (fieldName: string) => {
               v-if="
                 touchedFields.has('config.quality') && errors['config.quality']
               "
-              class="text-red-500 text-xs mt-1 block"
+              class="block mt-1 text-red-500 text-xs"
             >
               {{ errors["config.quality"] }}
             </span>
@@ -1369,7 +1374,7 @@ const getFieldClasses = (fieldName: string) => {
                 touchedFields.has('config.thickness') &&
                 errors['config.thickness']
               "
-              class="text-red-500 text-xs mt-1 block"
+              class="block mt-1 text-red-500 text-xs"
             >
               {{ errors["config.thickness"] }}
             </span>
@@ -1394,7 +1399,7 @@ const getFieldClasses = (fieldName: string) => {
                 touchedFields.has('config.hose_length') &&
                 errors['config.hose_length']
               "
-              class="text-red-500 text-xs mt-1 block"
+              class="block mt-1 text-red-500 text-xs"
             >
               {{ errors["config.hose_length"] }}
             </span>
@@ -1422,7 +1427,7 @@ const getFieldClasses = (fieldName: string) => {
                 touchedFields.has('config.volume_height') &&
                 errors['config.volume_height']
               "
-              class="text-red-500 text-xs mt-1 block"
+              class="block mt-1 text-red-500 text-xs"
             >
               {{ errors["config.volume_height"] }}
             </span>
@@ -1446,7 +1451,7 @@ const getFieldClasses = (fieldName: string) => {
                 touchedFields.has('config.description') &&
                 errors['config.description']
               "
-              class="text-red-500 text-xs mt-1 block"
+              class="block mt-1 text-red-500 text-xs"
             >
               {{ errors["config.description"] }}
             </span>
